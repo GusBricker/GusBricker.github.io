@@ -1,0 +1,41 @@
+---
+layout:     post
+title:      "Powered by Jekyll"
+subtitle:   "Initial thoughts on Jekyll"
+date:       2014-12-08 21:40:00
+author:     "GusBricker"
+header-img: "img/post-bg-01.jpg"
+---
+
+Previously I have always hosted my websites using some sort of dynamic CMS such as Joomla or Wordpress. Whilst they are both nice platforms, they
+can be kind of heavy weight and slow. Not to mention you have to constantly worry about security and database management.
+
+Given that I have been using my Github account a lot latey as well and been hearing good things about Jekyll for a while now. I decided to give
+it a shot. Not to mention it sweatens the deal that its free to host a Jekyll site with Github. The only real cost is if you want a custom domain.
+
+Pointers
+--------
+
+**Locally install Jekyll:**
+
+    gem install github-pages
+
+This gets you all the same Ruby gems Github Pages uses.
+
+    jekyll serve --watch
+
+The above command launches builds and launches the site. Beware if your site has other prerequisites such a less scripts then you will have to build
+those if they change.
+
+**Clone locally a nicely themed Jekyll setup:** 
+
+The Jekyll Github page lists some nice themes [here](https://github.com/jekyll/jekyll/wiki/Themes). Experiment locally with this theme then once your happy, push to Github.
+
+**Decide on a markdown format:**
+
+There are so many different markdown formats available these days. Decide on one that your comfortable with is my advice.
+
+**Build scripts:**
+
+Consider setting up a build script to make your life easier. For example, this blog has some less scripts which generate css files. It doesn't take any noticable extra time to
+build these everytime then build and launch the site.
