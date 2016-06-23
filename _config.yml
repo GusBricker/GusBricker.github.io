@@ -8,6 +8,7 @@ twitter_username:
 github_username: GusBricker
 facebook_username:
 coffee_address: 574E2ZGZ45MK
+timezone: "+10:00"
 
 # Build settings
 markdown: kramdown
