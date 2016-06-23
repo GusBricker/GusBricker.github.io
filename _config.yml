@@ -12,9 +12,12 @@ coffee_address: 574E2ZGZ45MK
 timezone: "+10:00"
 
 # Build settings
-markdown: kramdown
-highlighter: pygments
+kramdown:
+    input: GFM
+    syntax_highlighter: rouge
+    syntax_highlighter_opts:
+        css_class: 'highlight'
 permalink: pretty
 paginate: 5
-exclude: ["node_modules"]
-gems: ["jekyll-paginate"]
+exclude: ["less","node_modules","Gruntfile.js","package.json","README.md"]
+gems: ["jekyll-paginate", "jekyll-feed"]
