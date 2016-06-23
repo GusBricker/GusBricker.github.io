@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euf -o pipefail
+
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 LESS_DIR="${DIR}/less"
 CSS_DIR="${DIR}/css"
