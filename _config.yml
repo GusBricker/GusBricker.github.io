@@ -1,6 +1,7 @@
 # Site settings
 title: Bad Memory
 email: chris@lapa.com.au
+name: Chris Lapa
 description: "Awesome Things"
 baseurl: ""
 url: "http://gusbricker.io"
