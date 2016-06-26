@@ -1,10 +1,10 @@
 # Site settings
-title: Bad Memory
+title: pipefail
 email: chris@lapa.com.au
 name: Chris Lapa
-description: "Awesome Things"
+description: "pipefail"
 baseurl: ""
-url: "http://gusbricker.io"
+url: "http://www.pipefail.io"
 twitter_username: Gus_Bricker
 github_username: GusBricker
 facebook_username:
