@@ -9,6 +9,21 @@ $(function() {
     $("[data-toggle='tooltip']").tooltip();
 });
 
+var request = new XMLHttpRequest();
+request.onload = function() {
+    var fileContent = this.responseText;
+    var fileContentLines = fileContent.split( '\n' );
+    var randomLineIndex = Math.floor( Math.random() * (fileContentLines.length - 1) );
+    var lineParts = fileContentLines[ randomLineIndex ].split('|');
+    var quote = lineParts[0];
+    var author = lineParts[1];
+    var randomLine = '<p>' + quote + '<br>' + ' &mdash;' + author + '</p>';
+
+    document.getElementById('homeheading').innerHTML = randomLine;
+};
+request.open( 'GET', window.location.href + 'misc/headings.txt', true );
+request.send();
+
 // Contact Form Scripts
 var $contactForm = $('#contact-form');
 $contactForm.submit(function(e) {
