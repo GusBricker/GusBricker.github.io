@@ -16,7 +16,13 @@ header-img: "img/home-bg.jpg"
         </h3>
         {% endif %}
     </a>
-    <p class="post-meta">Posted by {{ post.author }} on {{ post.date | date: "%B %-d, %Y" }}</p>
+    <p class="post-meta">
+        Posted by {{ post.author }} on {{ post.date | date: "%B %-d, %Y" }}
+        {% if post.comments %}
+        &middot;
+            <a class="post-meta" href="{{ post.url | prepend: site.baseurl }}index.html#disqus_thread" data-disqus-identifier="{{post.url}}">Comments Loading...</a>
+        {% endif %}
+    </p>
 </div>
 <hr>
 {% endfor %}
