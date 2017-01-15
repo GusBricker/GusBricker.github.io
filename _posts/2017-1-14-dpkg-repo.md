@@ -3,7 +3,7 @@ layout:     post
 title:      "Seting up a Debian Archive Mirror"
 subtitle:   "Mirror mirror on the wall whose the prettiest Debian Archive Mirror of them all?"
 date:       2017-01-14
-header-img: "img/post-bg-01.jpg"
+header-img: "img/download-bg-01.jpg"
 ---
 
 Waiting for packages to download is the worst, especially when you are doing lots of Root File System development.
