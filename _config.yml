@@ -9,7 +9,7 @@ twitter_username: Gus_Bricker
 github_username: GusBricker
 facebook_username:
 coffee_address: 574E2ZGZ45MK
-timezone: "+10:00"
+timezone: '+1000'
 
 # Build settings
 kramdown:
