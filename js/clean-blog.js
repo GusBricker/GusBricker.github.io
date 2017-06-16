@@ -9,20 +9,37 @@ $(function() {
     $("[data-toggle='tooltip']").tooltip();
 });
 
-var request = new XMLHttpRequest();
-request.onload = function() {
-    var fileContent = this.responseText;
-    var fileContentLines = fileContent.split( '\n' );
-    var randomLineIndex = Math.floor( Math.random() * (fileContentLines.length - 1) );
-    var lineParts = fileContentLines[ randomLineIndex ].split('|');
+var pagePath = window.location.pathname;
+if (pagePath == "/index.html" || pagePath == "/") {
+    var quotes = [
+        "There are 2 hard problems in computer science: cache invalidation, naming things, and off-by-1 errors. | Leon Bambrick",
+        "Measuring programming progress by lines of code is like measuring aircraft building progress by weight. | Bill Gates",
+        "Some people, when confronted with a problem, think \"I know, I'll use regular expressions.\" Now they have two problems. | Jamie Zawinski",
+        "There are only two kinds of languages: the ones people complain about and the ones nobody uses. | Bjarne Stroustrup",
+        "If Java had true garbage collection, most programs would delete themselves upon execution. | Robert Sewell",
+        "Programming is like sex: one mistake and you have to support it for the rest of your life. | Michael Sinz",
+        "Java is to JavaScript as car is to carpet. | Chris Heilmann",
+        "A clever person solves a problem. A wise person avoids it. | Albert Einstein",
+        "Testing can only prove the presence of bugs, not their absence. | Edsger W. Dijkstra",
+        "When all you have is a hammer, everything starts to look like a nail. | Abraham Maslow",
+        "There, it should work now. | All programmers",
+        "Software is like sex: it's better when it's free. | Linus Torvalds",
+        "I think computer viruses should count as life.  I think it says something about human nature that the only form of life we have created so far is purely destructive.  We’ve created life in our own image. | Stephen Hawking",
+        "The true computer hackers follow a certain set of ethics that forbids them to profit or cause harm from their activities. | Kevin Mitnick",
+        "Being able to break security doesn’t make you a hacker anymore than being able to hotwire cars makes you an automotive engineer. | Eric Raymond",
+        "Companies spend millions of dollars on firewalls, encryption and secure access devices, and it’s money wasted, because none of these measures address the weakest link in the security chain. | Kevin Mitnick",
+        "If you think technology can solve your security problems, then you don’t understand the problems and you don’t understand the technology. | Bruce Schneier",
+        "Hoaxes use weaknesses in human behavior to ensure they are replicated and distributed. In other words, hoaxes prey on the Human Operating System. | Stewart Kirkpatrick",
+        "The only truly secure system is one that is powered off, cast in a block of concrete and sealed in a lead-lined room with armed guards. | Gene Spafford"
+    ];
+    var randomLineIndex = Math.floor(Math.random() * (quotes.length - 1));
+    var lineParts = quotes[randomLineIndex].split('|');
     var quote = lineParts[0];
     var author = lineParts[1];
     var randomLine = '<p>' + quote + '<br>' + ' &mdash;' + author + '</p>';
 
     document.getElementById('homeheading').innerHTML = randomLine;
-};
-request.open( 'GET', window.location.href + 'misc/headings.txt', true );
-request.send();
+}
 
 // Contact Form Scripts
 var $contactForm = $('#contact-form');
