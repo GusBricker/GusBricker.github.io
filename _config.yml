@@ -4,7 +4,7 @@ email: chris@lapa.com.au
 name: Chris Lapa
 description: "pipefail"
 baseurl: ""
-url: "http://www.pipefail.io"
+url: "https://www.pipefail.io"
 twitter_username: Gus_Bricker
 github_username: GusBricker
 facebook_username:
