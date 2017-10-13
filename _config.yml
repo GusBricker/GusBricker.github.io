@@ -17,11 +17,13 @@ redcarpet:
 permalink: pretty
 paginate: 5
 exclude: ["less","node_modules","Gruntfile.js","package.json","README.md"]
-gems: ["jekyll-paginate", "jekyll-feed", "jekyll-seo-tag"]
-plugins_dir:
+gems: ["jekyll-paginate", "jekyll-feed", "jekyll-seo-tag", "jekyll-mermaid", "jekyll_figure"]
+plugins:
     - jekyll-paginate
     - jekyll-feed
     - jekyll-seo-tag
+    - jekyll-mermaid
+    - jekyll_figure
 defaults:
   -
     scope:
@@ -31,3 +33,8 @@ defaults:
       layout: "page"
       author: "Chris Lapa"
       comments: true
+mermaid:
+      src: '/js/mermaid.min.js'
+figures:
+      dir: /img
+      enumerate: true

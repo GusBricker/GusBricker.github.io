@@ -6,5 +6,7 @@ gem install less
 gem install github-pages
 gem install redcarpet
 gem install jekyll-seo-tag
+gem install jekyll-mermaid
+gem install jekyll_figure
 brew install npm
 npm install uglify-js
