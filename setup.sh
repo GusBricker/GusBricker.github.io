@@ -6,9 +6,11 @@ bundle install
 
 if [[ "$OSTYPE" == "linux-gnu" ]]
 then
-	sudo apt-get install npm
+    sudo apt-get update
+    sudo apt-get install npm
 elif [[ "$OSTYPE" == "darwin"* ]]
 then
-	brew install npm
+    brew update
+    brew install npm
 fi
 npm install uglify-js
