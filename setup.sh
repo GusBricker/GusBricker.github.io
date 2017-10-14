@@ -14,3 +14,4 @@ then
     brew install npm
 fi
 npm install uglify-js
+npm install less
