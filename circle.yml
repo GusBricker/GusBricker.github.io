@@ -4,6 +4,9 @@ general:
       - gh-pages-ci
     ignore:
       - master
+test:
+  override:
+    - "true"
 deployment:
   build:
     branch: ["gh-pages-ci"]
