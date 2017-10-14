@@ -21,9 +21,9 @@ ${LESSC_BIN} "${LESS_DIR}/clean-blog.less" > "${CSS_DIR}/clean-blog.css"
 if [[ "x${MODE}" == "x" ]] || [[ "x${MODE}" == "xserve" ]]
 then
     echo "[jekyll] Serving site"
-    jekyll serve --watch
+    bundle exec jekyll serve --watch
 elif [[ "x${MODE}" == "xbuild" ]]
 then
     echo "[jekyll] Building site"
-    jekyll build
+    bundle exec jekyll build
 fi
