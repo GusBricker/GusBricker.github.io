@@ -16,7 +16,7 @@ redcarpet:
     extensions: ["lax_spacing", "fenced_code_blocks", "hard_wrap", "tables", "no_intra_emphasis"]
 permalink: pretty
 paginate: 5
-exclude: ["less","node_modules","Gruntfile.js","package.json","README.md"]
+exclude: ["less","node_modules","Gruntfile.js","package.json","README.md","vendor"]
 plugins:
     - jekyll-paginate
     - jekyll-feed
