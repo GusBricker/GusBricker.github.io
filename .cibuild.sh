@@ -28,4 +28,6 @@ rm -rf !(.git|.|..)
 mv /tmp/_site/* .
 git add -A .
 git commit -m "CircleCI: copy _site contents generated from gh-pages-ci branch"
+git remote -v
+git branch
 git push origin master
