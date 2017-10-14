@@ -1,0 +1,11 @@
+general:
+  branches:
+    only:
+      - gh-pages-ci
+    ignore:
+      - master
+deployment:
+  build:
+    branch: ["gh-pages-ci"]
+    commands:
+      - ./.cibuild.sh
