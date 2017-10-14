@@ -2,7 +2,7 @@
 layout:        post_colorful
 title:         "Metasploit Pivoting through Victims"
 subtitle:      "PIVOTTT!"
-date:           2017-10-06 +1000
+date:           2017-10-14 +1000
 title_style:    "color:#FFFFFF"
 subtitle_style: "color:#FFFFFF"
 author_style:   "color:#FFFFFF"
