@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="pipefail">
+
+    <title>ECS + Gitlab CI/CD Pipeline Skeleton - pipefail</title>
+
+    <link rel="canonical" href="https://www.pipefail.io/2017/09/08/docker-gitlab-cicd-pipeline/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/clean-blog.css">
+
+    <!-- Pygments Github CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom Fonts -->
+    <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.1.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+    <link href='https://fonts.googleapis.com/css?family=Lora:400,700,400italic,700italic' rel='stylesheet' type='text/css'>
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800' rel='stylesheet' type='text/css'>
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+    <!-- Begin Jekyll SEO tag v2.3.0 -->
+<title>ECS + Gitlab CI/CD Pipeline Skeleton | pipefail</title>
+<meta property="og:title" content="ECS + Gitlab CI/CD Pipeline Skeleton" />
+<meta name="author" content="Chris Lapa" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Automating container deployment is an important step into making your infrastructure easier to manage and scale. Administrators should be moving away from nursing their systems into higher level thinking where you design once and then automate changes on top of that system." />
+<meta property="og:description" content="Automating container deployment is an important step into making your infrastructure easier to manage and scale. Administrators should be moving away from nursing their systems into higher level thinking where you design once and then automate changes on top of that system." />
+<link rel="canonical" href="https://www.pipefail.io/2017/09/08/docker-gitlab-cicd-pipeline/" />
+<meta property="og:url" content="https://www.pipefail.io/2017/09/08/docker-gitlab-cicd-pipeline/" />
+<meta property="og:site_name" content="pipefail" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2017-09-08T00:00:00+00:00" />
+<script type="application/ld+json">
+{"name":null,"description":"Automating container deployment is an important step into making your infrastructure easier to manage and scale. Administrators should be moving away from nursing their systems into higher level thinking where you design once and then automate changes on top of that system.","url":"https://www.pipefail.io/2017/09/08/docker-gitlab-cicd-pipeline/","headline":"ECS + Gitlab CI/CD Pipeline Skeleton","dateModified":"2017-09-08T00:00:00+00:00","datePublished":"2017-09-08T00:00:00+00:00","sameAs":null,"@type":"BlogPosting","author":{"@type":"Person","name":"Chris Lapa"},"image":null,"publisher":null,"mainEntityOfPage":{"@type":"WebPage","@id":"https://www.pipefail.io/2017/09/08/docker-gitlab-cicd-pipeline/"},"@context":"http://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">pipefail</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+            <ul class="nav navbar-nav navbar-right">
+                <li>
+                    <a href="/">Home</a>
+                </li>
+                
+                <li>
+                    <a href="/about/">About</a>
+                </li>
+                
+                <li>
+                    <a href="/contact/">Contact</a>
+                </li>
+                
+                <li>
+                    <a href="/ctf/">CTF's</a>
+                </li>
+                
+                <li>
+                    
+                </li>
+                
+                <li>
+                    
+                </li>
+                
+                <li>
+                    
+                </li>
+                
+                <li>
+                    
+                </li>
+                
+            </ul>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+
+    <script type="text/javascript">
+    /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+    var disqus_shortname = 'pipefail'; // required: replace example with your forum shortname
+    /* var disqus_developer = 1; // Comment out when the site is live */
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'https://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+    </script>
+    <!-- Post Header -->
+<header class="intro-header" style="background-image: url('/img/docker_plus_gitlab.png')">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <h1 style=color:#80bfff >ECS + Gitlab CI/CD Pipeline Skeleton</h1>
+                    
+                    <h2 style=color:#488bce class="subheading">Automation!</h2>
+                    
+                    <span style=color:#488bce class="meta">Posted by Chris Lapa on September 8, 2017</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+
+				<p>Automating container deployment is an important step into making your infrastructure easier to manage and scale. Administrators should be
+moving away from nursing their systems into higher level thinking where you design once and then automate changes on top of that system.</p>
+
+<p>Below is a useful starting point for a Gitlab CI skeleton for building and pushing Docker containers into Amazon’s Elastic Container Service.</p>
+
+<h2 id="skeleton-gitlab-ciyml">Skeleton .gitlab-ci.yml</h2>
+
+<!-- language: markdown-->
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>variables:
+    IMAGE_NAME: "amazing-image"
+    CLUSTER_ARN: "ARN of ECS cluster"
+    SERVICE_ARN: "ARN of ECS service"
+    TASK_DEFINITION: "Task definition name in the service"
+    ECR_ADDRESS: "Container registry address"
+    ECS_REGION: "ECS region"
+
+stages:
+    - build
+
+build_job:
+    stage: build
+    artifacts:
+        paths:
+            - task-definition-${CI_COMMIT_SHA}.json
+        expire_in: 52 week
+    script:
+        - docker build -t "${IMAGE_NAME}" .
+        - eval $(aws ecr get-login --no-include-email --region "${ECS_REGION}")
+        - docker tag "${IMAGE_NAME}:latest" "${ECR_ADDRESS}:${CI_COMMIT_SHA}"
+        - docker push "${ECR_ADDRESS}:${CI_COMMIT_SHA}"
+        - sed -e "s;%BUILD_VERSION%;${CI_COMMIT_SHA};g" task-definition-base.json &gt; task-definition-${CI_COMMIT_SHA}.json
+        - aws ecs register-task-definition --family "${TASK_DEFINITION}" --cli-input-json "file://task-definition-${CI_COMMIT_SHA}.json"
+        - aws ecs update-service --cluster "${CLUSTER_ARN}" --service "${SERVICE_ARN}" --task-definition "${TASK_DEFINITION}"
+</code></pre></div></div>
+
+<h3 id="operational-breakdown">Operational Breakdown</h3>
+
+<ol>
+  <li>Build the image.</li>
+  <li>Log into ECR.</li>
+  <li>Tag the latest build we have produced with the ECR address and the commit hash.</li>
+  <li>Create a new task defintion file locally based off the “base” version in the repository. The new task definition is locked to the version of the docker image produced by replacing the <code class="highlighter-rouge">%BUILD_VERSION%</code> parameter with the commit hash.</li>
+  <li>Register the new task definition with ECR.</li>
+  <li>Tell the service to use the latest task definition available (by not specifying a revision with the <code class="highlighter-rouge">--task-definition</code> switch) which will be the new one registered in the previous step.</li>
+</ol>
+
+<p>A base task definition is required, a oneliner to generate this based on an existing task defintion:
+<code class="highlighter-rouge">aws ecs describe-task-definition --task-definition &lt;TASK_DEFINITION_NAME&gt; | jq $({containerDefinitions: .taskDefinition.containerDefinitions, volumes: .taskDefinition.volumes}) | jq $(.containerDefinitions[0].image=)\"&lt;ECR_ADDRESS&gt;:%BUILD_VERSION%\" &gt; task-definition-base.json</code></p>
+
+<p>The <code class="highlighter-rouge">&lt;TASK_DEFINITION_NAME&gt;</code> and <code class="highlighter-rouge">&lt;ECR_ADDRESS&gt;</code> should be replaced with appropriate values to match your setup and the <code class="highlighter-rouge">%BUILD_VERSION%</code> placeholder should be
+left in the base file as build <strong>step 4</strong> will replace this with the commit hash.</p>
+
+<h3 id="docker-and-cicd-quirks">Docker and CI/CD Quirks</h3>
+
+<p>As of writing, Docker 17.06.0 doesn’t gracefully cleanup stale images. This will cause your CI server’s disk to fill up pretty quickly. A good tool to
+cleanup old containers is <a href="https://github.com/spotify/docker-gc">docker-gc</a>.</p>
+
+<p>Given your CI server should be pushing the images to a registry somewhere, there is usually no point keeping old images around. Therefore running docker-gc in an hourly CRON job as shown: <code class="highlighter-rouge">MINIMUM_IMAGES_TO_SAVE=1 FORCE_IMAGE_REMOVAL=1 /usr/sbin/docker-gc</code> should help alleviate maintenance.</p>
+
+<h3 id="further-enhancementsconsiderations">Further Enhancements/Considerations</h3>
+
+<ul>
+  <li>The skeleton has no concept of production/testing environments.</li>
+  <li>ECR has a limit of 1000 images and needs to be cleaned up periodically.</li>
+</ul>
+
+<h3 id="useful-sources">Useful Sources</h3>
+<p><a href="https://aws.amazon.com/blogs/devops/set-up-a-build-pipeline-with-jenkins-and-amazon-ecs">1</a>
+<a href="https://stackoverflow.com/questions/31485031/ecs-service-automating-deploy-with-new-docker-image">2</a>
+<a href="https://serverfault.com/questions/682340/update-the-container-of-a-service-in-amazon-ecs">3</a></p>
+
+
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2017/09/01/getting-more-container-logs-into-cloudwatch/" data-toggle="tooltip" data-placement="top" title="Getting More Container Logs into Cloudwatch">&larr; Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2017/09/15/goto-modules-python-logging/" data-toggle="tooltip" data-placement="top" title="Goto Modules">Next Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+                <div id="disqus_thread"></div>
+                    <script type="text/javascript">
+                        /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+                        var disqus_shortname = 'pipefail'; // required: replace example with your forum shortname
+                        // var disqus_developer = 1; // Comment out when the site is live
+                        var disqus_identifier = "/2017/09/08/docker-gitlab-cicd-pipeline/";
+
+                        /* * * DON'T EDIT BELOW THIS LINE * * */
+                        (function() {
+                            var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+                            dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+                            (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+                        })();
+                    </script>
+                    <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+                    <a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+<hr>
+
+
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    <li>
+                        <a href="/feed.xml">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    <li>
+                        <a href="https://twitter.com/Gus_Bricker">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-twitter fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    
+                    <li>
+                        <a href="https://github.com/GusBricker">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li>
+                        <a href="http://ko-fi.com/Buttons/Buy/574E2ZGZ45MK">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-coffee fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                </ul>
+                <p class="copyright text-muted">Copyright &copy; Chris Lapa 2017</p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/clean-blog.min.js "></script>
+
+</div>
+</body>
+
+</html>

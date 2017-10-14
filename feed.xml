@@ -1,30 +1,1207 @@
----
-layout: none
----
 <?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>{{ site.title | xml_escape }}</title>
-    <description>{{ site.description | xml_escape }}</description>
-    <link>{{ site.url }}{{ site.baseurl }}/</link>
-    <atom:link href="{{ "/feed.xml" | prepend: site.baseurl | prepend: site.url }}" rel="self" type="application/rss+xml" />
-    <pubDate>{{ site.time | date_to_rfc822 }}</pubDate>
-    <lastBuildDate>{{ site.time | date_to_rfc822 }}</lastBuildDate>
-    <generator>Jekyll v{{ jekyll.version }}</generator>
-    {% for post in site.posts limit:10 %}
+    <title>pipefail</title>
+    <description>pipefail</description>
+    <link>https://www.pipefail.io/</link>
+    <atom:link href="https://www.pipefail.io/feed.xml" rel="self" type="application/rss+xml" />
+    <pubDate>Sat, 14 Oct 2017 13:40:41 +0000</pubDate>
+    <lastBuildDate>Sat, 14 Oct 2017 13:40:41 +0000</lastBuildDate>
+    <generator>Jekyll v3.6.0</generator>
+    
       <item>
-        <title>{{ post.title | xml_escape }}</title>
-        <description>{{ post.content | xml_escape }}</description>
-        <pubDate>{{ post.date | date_to_rfc822 }}</pubDate>
-        <link>{{ post.url | prepend: site.baseurl | prepend: site.url }}</link>
-        <guid isPermaLink="true">{{ post.url | prepend: site.baseurl | prepend: site.url }}</guid>
-        {% for tag in post.tags %}
-        <category>{{ tag | xml_escape }}</category>
-        {% endfor %}
-        {% for cat in post.categories %}
-        <category>{{ cat | xml_escape }}</category>
-        {% endfor %}
+        <title>Metasploit Pivoting through Victims</title>
+        <description>&lt;p&gt;I’m currently working my way through the &lt;a href=&quot;https://www.elearnsecurity.com/course/penetration_testing&quot;&gt;PTPv4 course offered by eLearn Security&lt;/a&gt;.
+One of the labs involves extending our reach to otherwise inaccessible networks by pivoting through a Victim that we already have an active Meterpreter session on.&lt;/p&gt;
+
+&lt;p&gt;I’m going to skip the network discovery part and jump straight into the interesting bits! Therefore assume the network map looks like this:&lt;/p&gt;
+
+&lt;script src=&quot;/js/mermaid.min.js&quot;&gt;&lt;/script&gt;
+&lt;div class=&quot;mermaid&quot;&gt;
+graph LR;
+	me[&quot;ME: 172.16.5.40&quot;];
+	host1[&quot;VICTIM 1: 10.32.120.15&quot;];
+	host2[&quot;VICTIM 2: 10.32.121.23&quot;];
+	me ==&amp;gt; host1;
+	host1 ==&amp;gt; host2;
+&lt;/div&gt;
+
+&lt;p&gt;As seen below, we have an existing Meterpreter session active for &lt;strong&gt;Victim 1&lt;/strong&gt;. We will be using this session to pivot via &lt;strong&gt;Victim 1&lt;/strong&gt; to access &lt;strong&gt;Victim 2&lt;/strong&gt;.&lt;/p&gt;
+&lt;figure id=&quot;figure-1&quot;&gt;&lt;a href=&quot;/img/2017-10-13-metasploit-pivoting/sessions.png&quot;&gt;&lt;img src=&quot;/img/2017-10-13-metasploit-pivoting/sessions.png&quot; alt=&quot;Meterpreter session on Victim 1&quot; /&gt;&lt;/a&gt;&lt;figcaption&gt;Figure 1: Meterpreter session on Victim 1 [&lt;a href=&quot;/img/2017-10-13-metasploit-pivoting/sessions.png&quot;&gt;PNG&lt;/a&gt;]&lt;/figcaption&gt;&lt;/figure&gt;
+
+&lt;hr /&gt;
+&lt;h3 id=&quot;socks-module-setup&quot;&gt;Socks Module Setup&lt;/h3&gt;
+
+&lt;p&gt;We will need to use the Socks4a Metasploit module to setup a proxy from Meterpreter to our system. The Socks proxy is required because Meterpreter uses its own separate routing table vs what the host uses. Meaning only Metasploit can access the routes it sets up unless we use a proxy.&lt;/p&gt;
+&lt;figure id=&quot;figure-2&quot;&gt;&lt;a href=&quot;/img/2017-10-13-metasploit-pivoting/socks_setup.png&quot;&gt;&lt;img src=&quot;/img/2017-10-13-metasploit-pivoting/socks_setup.png&quot; alt=&quot;Socks Proxy Module&quot; /&gt;&lt;/a&gt;&lt;figcaption&gt;Figure 2: Socks Proxy Module [&lt;a href=&quot;/img/2017-10-13-metasploit-pivoting/socks_setup.png&quot;&gt;PNG&lt;/a&gt;]&lt;/figcaption&gt;&lt;/figure&gt;
+
+&lt;hr /&gt;
+&lt;h3 id=&quot;adding-default-routes&quot;&gt;Adding Default Routes&lt;/h3&gt;
+&lt;p&gt;Next up we will use the Autoroute module with the &lt;strong&gt;CMD&lt;/strong&gt; set to &lt;strong&gt;default&lt;/strong&gt; and the &lt;strong&gt;SESSION&lt;/strong&gt; set to 14 (see Figure 1). The &lt;strong&gt;SUBNET&lt;/strong&gt; setting is
+not required when using &lt;strong&gt;default&lt;/strong&gt;.
+This tells Metasploit to add a default route to its routing table, routing all traffic Metasploit see’s through &lt;strong&gt;VICTIM 1&lt;/strong&gt;. When combined with the Socks proxy setup previously, it allows access to any system that &lt;strong&gt;VICTIM 1&lt;/strong&gt; can access via our machine.&lt;/p&gt;
+&lt;figure id=&quot;figure-3&quot;&gt;&lt;a href=&quot;/img/2017-10-13-metasploit-pivoting/autoroute.png&quot;&gt;&lt;img src=&quot;/img/2017-10-13-metasploit-pivoting/autoroute.png&quot; alt=&quot;Autoroute Module&quot; /&gt;&lt;/a&gt;&lt;figcaption&gt;Figure 3: Autoroute Module [&lt;a href=&quot;/img/2017-10-13-metasploit-pivoting/autoroute.png&quot;&gt;PNG&lt;/a&gt;]&lt;/figcaption&gt;&lt;/figure&gt;
+
+&lt;hr /&gt;
+&lt;h3 id=&quot;foxyproxy&quot;&gt;Foxyproxy&lt;/h3&gt;
+&lt;p&gt;The final step is to use our proxy outside of Metasploit. In this case, I’m using FoxyProxy in Firefox but another common
+route is to use proxychains (which comes installed by default in Kali).&lt;/p&gt;
+&lt;figure id=&quot;figure-4&quot;&gt;&lt;a href=&quot;/img/2017-10-13-metasploit-pivoting/foxyproxy.png&quot;&gt;&lt;img src=&quot;/img/2017-10-13-metasploit-pivoting/foxyproxy.png&quot; alt=&quot;FoxyProxy Setup&quot; /&gt;&lt;/a&gt;&lt;figcaption&gt;Figure 4: FoxyProxy Setup [&lt;a href=&quot;/img/2017-10-13-metasploit-pivoting/foxyproxy.png&quot;&gt;PNG&lt;/a&gt;]&lt;/figcaption&gt;&lt;/figure&gt;
+
+&lt;hr /&gt;
+&lt;h3 id=&quot;testing&quot;&gt;Testing&lt;/h3&gt;
+&lt;p&gt;All thats left to do is to test we can accesss &lt;strong&gt;VICTIM 2&lt;/strong&gt; via Firefox, and as seen in Figure 5 it works!&lt;/p&gt;
+&lt;figure id=&quot;figure-5&quot;&gt;&lt;a href=&quot;/img/2017-10-13-metasploit-pivoting/test.png&quot;&gt;&lt;img src=&quot;/img/2017-10-13-metasploit-pivoting/test.png&quot; alt=&quot;Testing&quot; /&gt;&lt;/a&gt;&lt;figcaption&gt;Figure 5: Testing [&lt;a href=&quot;/img/2017-10-13-metasploit-pivoting/test.png&quot;&gt;PNG&lt;/a&gt;]&lt;/figcaption&gt;&lt;/figure&gt;
+
+&lt;hr /&gt;
+&lt;h3 id=&quot;takeaways&quot;&gt;Takeaway’s&lt;/h3&gt;
+&lt;ul&gt;
+  &lt;li&gt;Metasploits routing table != system routing table&lt;/li&gt;
+  &lt;li&gt;Pivoting is a great way to gain access to networks that aren’t connected to the internet!&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h4 id=&quot;sources&quot;&gt;Sources:&lt;/h4&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href=&quot;https://github.com/rapid7/metasploit-framework/blob/master/documentation/modules/post/multi/manage/autoroute.md&quot;&gt;https://github.com/rapid7/metasploit-framework/blob/master/documentation/modules/post/multi/manage/autoroute.md&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+        <pubDate>Fri, 06 Oct 2017 00:00:00 +0000</pubDate>
+        <link>https://www.pipefail.io/2017/10/06/metasploit-pivoting/</link>
+        <guid isPermaLink="true">https://www.pipefail.io/2017/10/06/metasploit-pivoting/</guid>
+        
+        
       </item>
-    {% endfor %}
+    
+      <item>
+        <title>Working with Network Manager</title>
+        <description>&lt;p&gt;Network Manager is the go-to tool for managing networks on Linux. It’s well documented, relatively easy to use and has a nice
+CLI interface called &lt;code class=&quot;highlighter-rouge&quot;&gt;nmcli&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;The &lt;code class=&quot;highlighter-rouge&quot;&gt;nmcli&lt;/code&gt; tool is fairly powerful, it includes a terse mode (&lt;code class=&quot;highlighter-rouge&quot;&gt;-t&lt;/code&gt;) which when combined with the selectable fields (&lt;code class=&quot;highlighter-rouge&quot;&gt;-f&lt;/code&gt;) makes parsing its output a
+breeze. Initially when you start using &lt;code class=&quot;highlighter-rouge&quot;&gt;nmcli&lt;/code&gt;, the first thing you might Google is: &lt;strong&gt;connecting to wifi networks with nmcli&lt;/strong&gt;.
+You will probably find a Stack Overflow post that suggests this: &lt;code class=&quot;highlighter-rouge&quot;&gt;nmcli dev wifi connect &amp;lt;SSID&amp;gt; password &amp;lt;PASSWORD&amp;gt;&lt;/code&gt;. Depending on your use case, this could be the wrong answer.&lt;/p&gt;
+
+&lt;p&gt;To understand why this is the wrong answer, first we need to understand how Network Manager works.
+Whenever you attempt join a network, &lt;code class=&quot;highlighter-rouge&quot;&gt;nmcli dev wifi connect&lt;/code&gt; creates an entry in the &lt;code class=&quot;highlighter-rouge&quot;&gt;/etc/NetworkManager/system-connections/&lt;/code&gt; folder. The key word in the last sentence is &lt;strong&gt;attempt&lt;/strong&gt;.
+If you enter the wrong password or SSID, &lt;code class=&quot;highlighter-rouge&quot;&gt;nmcli&lt;/code&gt; will silently create an entry in that folder.
+Basically any time &lt;code class=&quot;highlighter-rouge&quot;&gt;nmcli dev wifi connect&lt;/code&gt; is executed a new entry is added under the SSID name, if that entry exists the entry name is silently numerically incremented (eg: &lt;strong&gt;mywifi&lt;/strong&gt; becomes &lt;strong&gt;mywifi 1&lt;/strong&gt;).&lt;/p&gt;
+
+&lt;p&gt;You may be thinking, who cares? As long as I can join the WiFi whats the big deal? The issue comes when you want to manage the WiFi connection (disconnect/forget/modify).
+For example, to disconnect from a WiFi network the command to use is &lt;code class=&quot;highlighter-rouge&quot;&gt;nmcli con down &amp;lt;ID&amp;gt;&lt;/code&gt;. The ID being the entry in the &lt;code class=&quot;highlighter-rouge&quot;&gt;/etc/NetworkManager/system-connections/&lt;/code&gt; folder. How can we reliably know what ID to use given that &lt;code class=&quot;highlighter-rouge&quot;&gt;nmcli dev wifi connect&lt;/code&gt; doesn’t neccesarily use the SSID as the ID?&lt;/p&gt;
+
+&lt;p&gt;This scenario repeats over and over again, for example to forget a network we use &lt;code class=&quot;highlighter-rouge&quot;&gt;nmcli con delete &amp;lt;ID&amp;gt;&lt;/code&gt;. To manage the network settings we use &lt;code class=&quot;highlighter-rouge&quot;&gt;nmcli con modify &amp;lt;ID&amp;gt;&lt;/code&gt;, etc…&lt;/p&gt;
+
+&lt;h2 id=&quot;the-solution&quot;&gt;The Solution&lt;/h2&gt;
+
+&lt;p&gt;The following script ensures the entries in the &lt;code class=&quot;highlighter-rouge&quot;&gt;/etc/NetworkManager/system-connections/&lt;/code&gt; folder are the actual SSID of the access point by manually creating the network vs using &lt;code class=&quot;highlighter-rouge&quot;&gt;nmcli dev wifi connect&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;The script works by essentially checking if it has seen the WiFi network previously, if it has then it deletes the network and re-creates it manually using
+&lt;code class=&quot;highlighter-rouge&quot;&gt;nmcli con add&lt;/code&gt; command. There is a fair bit of logic to get this right, but my tests shows it works reliably. In the interest of keeping the script
+small, it only handles WPA1/WPA2 networks (you shouldn’t be using Open/WEP networks anyway!).&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-python&quot; data-lang=&quot;python&quot;&gt;&lt;span class=&quot;c&quot;&gt;#!/bin/bash&lt;/span&gt;
+
+&lt;span class=&quot;c&quot;&gt;# Usage: ```join.sh &amp;lt;SSID&amp;gt; &amp;lt;INTERFACE&amp;gt; &amp;lt;PASSWORD&amp;gt;```&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;# Author: Chris Lapa&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;# https://pipefail.io&lt;/span&gt;
+
+&lt;span class=&quot;n&quot;&gt;SSID&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;$&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;INTERFACE&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;$&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;PASSWORD&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;$&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;3&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;err&quot;&gt;!&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;nmcli&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;con&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;show&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dev&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;null&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;then&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}: Not seen previously&quot;&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;nmcli&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;con&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;add&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;con&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;name&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}&quot;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ifname&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${INTERFACE}&quot;&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;type&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;wifi&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ssid&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dev&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;null&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;then&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}: Setting PSK key&quot;&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;err&quot;&gt;!&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;nmcli&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;con&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;modify&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}&quot;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;wifi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sec&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;key&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;mgmt&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;wpa&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;psk&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;wifi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sec&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;psk&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${PASSWORD}&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dev&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;null&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;then&lt;/span&gt;
+            &lt;span class=&quot;n&quot;&gt;nmcli&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;con&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;delete&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dev&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;null&lt;/span&gt;
+            &lt;span class=&quot;nb&quot;&gt;exit&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;fi&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;else&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;nmcli&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;con&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;delete&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dev&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;null&lt;/span&gt;
+        &lt;span class=&quot;nb&quot;&gt;exit&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;fi&lt;/span&gt;
+
+    &lt;span class=&quot;n&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}: Joining&quot;&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;err&quot;&gt;!&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;nmcli&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;con&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;up&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dev&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;null&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;then&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}: Join failure&quot;&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;nmcli&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;con&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;delete&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dev&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;null&lt;/span&gt;
+        &lt;span class=&quot;nb&quot;&gt;exit&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;else&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}: Join success&quot;&lt;/span&gt;
+        &lt;span class=&quot;nb&quot;&gt;exit&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;fi&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;else&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}: Seen previously&quot;&lt;/span&gt;
+
+    &lt;span class=&quot;n&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}: Joining&quot;&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;err&quot;&gt;!&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;nmcli&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;con&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;up&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dev&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;null&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;then&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}: Join failure, maybe password changed or wrong one stored?&quot;&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;nmcli&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;con&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;delete&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dev&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;null&lt;/span&gt;
+
+        &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;nmcli&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;con&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;add&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;con&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;name&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}&quot;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ifname&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${INTERFACE}&quot;&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;type&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;wifi&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ssid&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dev&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;null&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;then&lt;/span&gt;
+            &lt;span class=&quot;n&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}: Setting PSK key&quot;&lt;/span&gt;
+            &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;err&quot;&gt;!&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;nmcli&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;con&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;modify&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}&quot;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;wifi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sec&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;key&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;mgmt&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;wpa&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;psk&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;wifi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sec&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;psk&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${PASSWORD}&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dev&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;null&lt;/span&gt;
+            &lt;span class=&quot;n&quot;&gt;then&lt;/span&gt;
+                &lt;span class=&quot;n&quot;&gt;nmcli&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;con&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;delete&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dev&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;null&lt;/span&gt;
+                &lt;span class=&quot;nb&quot;&gt;exit&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;
+            &lt;span class=&quot;n&quot;&gt;fi&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;else&lt;/span&gt;
+            &lt;span class=&quot;n&quot;&gt;nmcli&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;con&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;delete&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dev&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;null&lt;/span&gt;
+            &lt;span class=&quot;nb&quot;&gt;exit&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;fi&lt;/span&gt;
+
+        &lt;span class=&quot;n&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}: Joining&quot;&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;err&quot;&gt;!&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;nmcli&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;con&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;up&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dev&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;null&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;then&lt;/span&gt;
+            &lt;span class=&quot;n&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}: Join failure&quot;&lt;/span&gt;
+            &lt;span class=&quot;n&quot;&gt;nmcli&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;con&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;delete&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dev&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;null&lt;/span&gt;
+            &lt;span class=&quot;nb&quot;&gt;exit&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;else&lt;/span&gt;
+            &lt;span class=&quot;n&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}: Join success&quot;&lt;/span&gt;
+            &lt;span class=&quot;nb&quot;&gt;exit&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;fi&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;else&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}: Join success&quot;&lt;/span&gt;
+        &lt;span class=&quot;nb&quot;&gt;exit&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;fi&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;fi&lt;/span&gt;
+
+&lt;span class=&quot;nb&quot;&gt;exit&lt;/span&gt;  &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&quot;moarrr-scripts&quot;&gt;Moarrr Scripts!&lt;/h2&gt;
+
+&lt;h3 id=&quot;scan-for-networks&quot;&gt;Scan For Networks&lt;/h3&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-python&quot; data-lang=&quot;python&quot;&gt;&lt;span class=&quot;c&quot;&gt;#!/bin/bash&lt;/span&gt;
+
+&lt;span class=&quot;c&quot;&gt;# Usage: ```scan.sh```&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;# Author: Chris Lapa&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;# https://pipefail.io&lt;/span&gt;
+
+&lt;span class=&quot;n&quot;&gt;nmcli&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;f&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;SSID&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;CHAN&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;SECURITY&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;BARS&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ACTIVE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;BSSID&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;dev&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;wifi&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;hr /&gt;
+
+&lt;h3 id=&quot;forget-network&quot;&gt;Forget Network&lt;/h3&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-python&quot; data-lang=&quot;python&quot;&gt;&lt;span class=&quot;c&quot;&gt;#!/bin/bash&lt;/span&gt;
+
+&lt;span class=&quot;c&quot;&gt;# Usage: ```forget.sh &amp;lt;SSID&amp;gt;```&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;# Author: Chris Lapa&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;# https://pipefail.io&lt;/span&gt;
+
+&lt;span class=&quot;n&quot;&gt;SSID&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;$&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;
+
+&lt;span class=&quot;n&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}: Forgetting&quot;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;nmcli&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;con&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;delete&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dev&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;null&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;ret_code&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;$?&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt; &lt;span class=&quot;err&quot;&gt;$&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ret_code&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ne&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;then&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}: Forgetting failure&quot;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;else&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}: Forgetting success&quot;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;fi&lt;/span&gt;
+
+&lt;span class=&quot;nb&quot;&gt;exit&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${ret_code}&quot;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;hr /&gt;
+
+&lt;h3 id=&quot;check-connected-to&quot;&gt;Check Connected To&lt;/h3&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-python&quot; data-lang=&quot;python&quot;&gt;&lt;span class=&quot;c&quot;&gt;#!/bin/bash&lt;/span&gt;
+
+&lt;span class=&quot;c&quot;&gt;# Usage: ```connected_to.sh &amp;lt;SSID&amp;gt;```&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;# Author: Chris Lapa&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;# https://pipefail.io&lt;/span&gt;
+
+&lt;span class=&quot;n&quot;&gt;SSID&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;$&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;
+
+&lt;span class=&quot;n&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}: Checking&quot;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;connected&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;$&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;nmcli&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;t&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;f&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;SSID&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ACTIVE&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;d&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;wifi&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;list&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;|&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;grep&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;|&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;cut&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;d&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;':'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;f2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;ret_code&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;$?&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[[&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;x${connected}&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;==&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;xyes&quot;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;]]&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;then&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}: Connected&quot;&lt;/span&gt;
+    &lt;span class=&quot;nb&quot;&gt;exit&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;fi&lt;/span&gt;
+
+&lt;span class=&quot;n&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}: Not connected&quot;&lt;/span&gt;
+&lt;span class=&quot;nb&quot;&gt;exit&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;hr /&gt;
+
+&lt;h3 id=&quot;disconnect&quot;&gt;Disconnect&lt;/h3&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-python&quot; data-lang=&quot;python&quot;&gt;&lt;span class=&quot;c&quot;&gt;#!/bin/bash&lt;/span&gt;
+
+&lt;span class=&quot;c&quot;&gt;# Usage: ```disconnect.sh &amp;lt;SSID&amp;gt;```&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;# Author: Chris Lapa&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;# https://pipefail.io&lt;/span&gt;
+
+&lt;span class=&quot;n&quot;&gt;SSID&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;$&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;
+
+&lt;span class=&quot;n&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}: Disconnecting&quot;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;nmcli&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;con&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;down&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dev&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;null&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;ret_code&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;$?&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt; &lt;span class=&quot;err&quot;&gt;$&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ret_code&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ne&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;then&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}: Disconnect failure&quot;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;else&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${SSID}: Disconnect success&quot;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;fi&lt;/span&gt;
+
+&lt;span class=&quot;nb&quot;&gt;exit&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;${ret_code}&quot;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;hr /&gt;
+
+&lt;h4 id=&quot;sources&quot;&gt;Sources:&lt;/h4&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href=&quot;https://developer.gnome.org/NetworkManager/stable/&quot;&gt;https://developer.gnome.org/NetworkManager/stable/&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://forums.kali.org/showthread.php?36275-Help-with-nmcli-and-connecting-to-specific-bssid-(error-53)&quot;&gt;https://forums.kali.org/showthread.php?36275-Help-with-nmcli-and-connecting-to-specific-bssid-(error-53)&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://www.juniper.net/documentation/en_US/junos-space-apps/network-director2.0/topics/concept/wireless-ssid-bssid-essid.html&quot;&gt;https://www.juniper.net/documentation/en_US/junos-space-apps/network-director2.0/topics/concept/wireless-ssid-bssid-essid.html&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+        <pubDate>Fri, 06 Oct 2017 00:00:00 +0000</pubDate>
+        <link>https://www.pipefail.io/2017/10/06/network-manager/</link>
+        <guid isPermaLink="true">https://www.pipefail.io/2017/10/06/network-manager/</guid>
+        
+        
+      </item>
+    
+      <item>
+        <title>Exceptional concurrent.futures</title>
+        <description>&lt;p&gt;&lt;a href=&quot;https://docs.python.org/3/library/concurrent.futures.html&quot;&gt;Concurrent Futures&lt;/a&gt; is a concurrency library present in Python since 2.7. It allows easy management of parallel/background jobs. I had a project
+recently where my background threads would appear to die silently. I was expecting to see an Exception somewhere in my logs but found nothing.&lt;/p&gt;
+
+&lt;p&gt;It turns out somewhere in &lt;code class=&quot;highlighter-rouge&quot;&gt;concurrent.futures.ThreadpoolExecutor&lt;/code&gt;, the exception gets gobbled up. The documentation page shows the &lt;code class=&quot;highlighter-rouge&quot;&gt;Futures&lt;/code&gt; object
+actually has an &lt;code class=&quot;highlighter-rouge&quot;&gt;exception()&lt;/code&gt; method which will return the Exception raised in the background thread. However there is a catch, all we get is the exception
+message which might not be all that useful in actually tracking down the bug. What we really want is the traceback, showing which file and line caused
+the error.&lt;/p&gt;
+
+&lt;p&gt;We can however fix this issue by catching the exception, and re-raising it with more information in the message. Our worker function looks something
+like this:&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-python&quot; data-lang=&quot;python&quot;&gt;&lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;do_work&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;():&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;try&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;print&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'Work starting'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;print&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;c&quot;&gt;# Generate divide by zero exception for testing&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;print&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'Work done!'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;except&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;Exception&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;as&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;e&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;exc_type&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;exc_obj&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;exc_tb&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;sys&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;exc_info&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;fname&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;os&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;path&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;split&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;exc_tb&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;tb_frame&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;f_code&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;co_filename&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;message&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;Exception: &lt;/span&gt;&lt;span class=&quot;si&quot;&gt;%&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;s in &lt;/span&gt;&lt;span class=&quot;si&quot;&gt;%&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;s on line &lt;/span&gt;&lt;span class=&quot;si&quot;&gt;%&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;d&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;%&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;exc_type&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;fname&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;exc_tb&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;tb_lineno&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;message&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;&quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;join&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;traceback&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;format_exception&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;e&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;__class__&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;e&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;exc_tb&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;raise&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;RuntimeError&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;Error occurred. Original traceback is&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;si&quot;&gt;%&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;s&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;%&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;message&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;The above snippet is fairly simple, we get the traceback from &lt;code class=&quot;highlighter-rouge&quot;&gt;sys.exc_info()&lt;/code&gt;. We can then determine the filename, line number and actual traceback. Its
+just a matter of constructing a new message with that information contained within and then raising a &lt;code class=&quot;highlighter-rouge&quot;&gt;RuntimeError()&lt;/code&gt;.&lt;/p&gt;
+
+&lt;h2 id=&quot;full-example&quot;&gt;Full Example&lt;/h2&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-python&quot; data-lang=&quot;python&quot;&gt;&lt;span class=&quot;c&quot;&gt;#!/usr/bin/env python3&lt;/span&gt;
+
+&lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;os&lt;/span&gt;
+&lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;sys&lt;/span&gt;
+&lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;traceback&lt;/span&gt;
+&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;concurrent.futures&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ThreadPoolExecutor&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;wait&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;do_work&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;():&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;try&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;print&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'Work starting'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;print&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;c&quot;&gt;# Generate divide by zero exception for testing&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;print&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'Work done!'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;except&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;Exception&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;as&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;e&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;exc_type&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;exc_obj&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;exc_tb&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;sys&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;exc_info&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;fname&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;os&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;path&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;split&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;exc_tb&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;tb_frame&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;f_code&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;co_filename&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;message&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;Exception: &lt;/span&gt;&lt;span class=&quot;si&quot;&gt;%&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;s in &lt;/span&gt;&lt;span class=&quot;si&quot;&gt;%&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;s on line &lt;/span&gt;&lt;span class=&quot;si&quot;&gt;%&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;d&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;%&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;exc_type&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;fname&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;exc_tb&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;tb_lineno&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;message&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;&quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;join&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;traceback&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;format_exception&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;e&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;__class__&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;e&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;exc_tb&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;raise&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;RuntimeError&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;Error occurred. Original traceback is&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;si&quot;&gt;%&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;s&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;%&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;message&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;run&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;():&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;num_workers&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;5&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;executor&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ThreadPoolExecutor&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;max_workers&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;num_workers&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;futures&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[]&lt;/span&gt;
+
+    &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;index&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;range&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;num_workers&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;futures&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;append&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;executor&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;submit&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;do_work&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+
+    &lt;span class=&quot;n&quot;&gt;wait&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;futures&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+
+    &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;f&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;futures&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;ex&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;f&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;exception&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ex&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;!=&lt;/span&gt; &lt;span class=&quot;bp&quot;&gt;None&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+            &lt;span class=&quot;k&quot;&gt;print&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ex&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;__name__&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;==&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;__main__&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;run&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+</description>
+        <pubDate>Sat, 30 Sep 2017 00:00:00 +0000</pubDate>
+        <link>https://www.pipefail.io/2017/09/30/concurrent-futures-exceptions/</link>
+        <guid isPermaLink="true">https://www.pipefail.io/2017/09/30/concurrent-futures-exceptions/</guid>
+        
+        
+      </item>
+    
+      <item>
+        <title>Rapid Development</title>
+        <description>&lt;p&gt;Serverless is awesome. The ability to run a snippet of code in the cloud in response to various triggers without having to manage
+infrastructure is beyond amazing especially if you don’t want to take on to much technical debt.&lt;/p&gt;
+
+&lt;p&gt;One big gotcha with Serverless offerings such as AWS Lambda is how do you test your code if its running on some magical box in the cloud? 
+Whilst there exists projects like &lt;a href=&quot;https://github.com/ashiina/lambda-local&quot;&gt;lambda-local&lt;/a&gt; to test locally, I prefer to test on the environment in which its going to be deployed.
+Testing in the cloud becomes more important if the function depends on some other AWS resources that aren’t accessible outside of your VPC.&lt;/p&gt;
+
+&lt;p&gt;My workspace for this kind of workflow usually has a few scripts per function, &lt;code class=&quot;highlighter-rouge&quot;&gt;mkdist.sh&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;run.sh&lt;/code&gt;.&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&quot;mkdistsh&quot;&gt;mkdist.sh&lt;/h2&gt;
+
+&lt;p&gt;This script is dead simple and fairly dependant on the language you are working with. The example I have included is suited for Python 3.6 but should be easily adapted to suit other languages. It zips up the source code and sends it off to AWS using the CLI.&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;c&quot;&gt;#!/bin/bash&lt;/span&gt;
+
+&lt;span class=&quot;nv&quot;&gt;DIR&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;$(&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;cd&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;$(&lt;/span&gt; dirname &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;BASH_SOURCE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[0]&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;pwd&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+
+&lt;span class=&quot;nb&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;-----------------------------------------------------&quot;&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;FUNCTION_NAME&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&amp;lt;function name&amp;gt;&quot;&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;ZIP_PATH&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;DIR&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;FUNCTION_NAME&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;.zip&quot;&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;SRC_PATH&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;DIR&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;/source&quot;&lt;/span&gt;
+rm &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;ZIP_PATH&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+
+zip &lt;span class=&quot;nt&quot;&gt;-9&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;ZIP_PATH&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+
+&lt;span class=&quot;nb&quot;&gt;pushd&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;SRC_PATH&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;
+zip &lt;span class=&quot;nt&quot;&gt;-r9&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;ZIP_PATH&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt; app.py
+&lt;span class=&quot;nb&quot;&gt;popd
+
+pushd&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;SRC_PATH&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;/lib/python3.6/site-packages
+zip &lt;span class=&quot;nt&quot;&gt;-r9&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;ZIP_PATH&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;*&lt;/span&gt;
+&lt;span class=&quot;nb&quot;&gt;popd
+
+&lt;/span&gt;aws lambda update-function-code &lt;span class=&quot;nt&quot;&gt;--publish&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;--function-name&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;FUNCTION_NAME&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;--zip-file&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;fileb://&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;ZIP_PATH&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&quot;runsh---via-aws-cli&quot;&gt;run.sh - via AWS CLI&lt;/h2&gt;
+
+&lt;p&gt;A simple wrapper around &lt;code class=&quot;highlighter-rouge&quot;&gt;aws lambda invoke&lt;/code&gt; to make life a little easier. Payload is supplied via the &lt;code class=&quot;highlighter-rouge&quot;&gt;--payload&lt;/code&gt; switch.&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;c&quot;&gt;#!/bin/bash&lt;/span&gt;
+
+&lt;span class=&quot;nv&quot;&gt;DIR&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;$(&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;cd&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;$(&lt;/span&gt; dirname &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;BASH_SOURCE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[0]&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;pwd&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+
+&lt;span class=&quot;nv&quot;&gt;FUNCTION_NAME&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&amp;lt;function name&amp;gt;&quot;&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;REGION&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&amp;lt;region&amp;gt;&quot;&lt;/span&gt;
+
+aws lambda invoke &lt;span class=&quot;nt&quot;&gt;--function-name&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;FUNCTION_NAME&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;--invocation-type&lt;/span&gt; RequestResponse &lt;span class=&quot;nt&quot;&gt;--log-type&lt;/span&gt; None &lt;span class=&quot;nt&quot;&gt;--region&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;REGION&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;@&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;DIR&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;/log.txt&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt; tail &lt;span class=&quot;nt&quot;&gt;-F&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;DIR&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;/log.txt&quot;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&quot;runsh---via-api-gateway&quot;&gt;run.sh - via API gateway&lt;/h2&gt;
+
+&lt;p&gt;Heres the fun stuff, this script depends on the awesome &lt;a href=&quot;https://github.com/jorgebastida/awslogs&quot;&gt;awslogs&lt;/a&gt; package and that your function
+is connected to an API Endpoint via API Gateway. Payload is supplied via the &lt;code class=&quot;highlighter-rouge&quot;&gt;-d&lt;/code&gt; switch.&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;c&quot;&gt;#!/bin/bash&lt;/span&gt;
+
+&lt;span class=&quot;nv&quot;&gt;FUNCTION_NAME&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&amp;lt;function name&amp;gt;&quot;&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;REGION&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&amp;lt;region&amp;gt;&quot;&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;API_KEY&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&amp;lt;api key&amp;gt;&quot;&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;API_ENDPOINT&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&amp;lt;api endpoint&amp;gt;&quot;&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;LOG_GROUP_NAME&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;/aws/lambda/&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;FUNCTION_NAME&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+
+&lt;span class=&quot;nb&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;Executing &lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;FUNCTION_NAME&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt; with payload&quot;&lt;/span&gt;
+&lt;span class=&quot;nb&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;PAYLOAD&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+
+&lt;span class=&quot;nv&quot;&gt;date&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;$(&lt;/span&gt;date &lt;span class=&quot;nt&quot;&gt;-u&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;'+%Y/%m/%d %H:%M:%S'&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;)&lt;/span&gt;
+curl &lt;span class=&quot;nt&quot;&gt;-X&lt;/span&gt; POST &lt;span class=&quot;nt&quot;&gt;-H&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;Accept: application/json&quot;&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-H&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;Content-Type: application/json&quot;&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-H&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;x-api-key: &lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;API_KEY&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-i&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;API_ENDPOINT&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;@&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;||&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;exit &lt;/span&gt;1
+&lt;span class=&quot;nb&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;c&quot;&gt;# Empty line&lt;/span&gt;
+
+awslogs get &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;LOG_GROUP_NAME&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;--watch&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;--start&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;date&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+</description>
+        <pubDate>Fri, 22 Sep 2017 00:00:00 +0000</pubDate>
+        <link>https://www.pipefail.io/2017/09/22/rapid-development-aws-lambda/</link>
+        <guid isPermaLink="true">https://www.pipefail.io/2017/09/22/rapid-development-aws-lambda/</guid>
+        
+        
+      </item>
+    
+      <item>
+        <title>Goto Modules</title>
+        <description>&lt;p&gt;Every developer has a set of modules they always use in some mutated form or another. I’m starting this series of posts to document all my Goto Modules. Starting off with my goto Python Logging module. I currently have two main variants of this module which I use regularly.&lt;/p&gt;
+
+&lt;h2 id=&quot;console-and-file&quot;&gt;Console and File&lt;/h2&gt;
+
+&lt;p&gt;This variant allows configurable level logging to the console and to a file. It sets up a rotating file handler that will keep 20 previous files and
+rotate them when they reach 10MB.&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-python&quot; data-lang=&quot;python&quot;&gt;&lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;logging&lt;/span&gt;
+&lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;logging.handlers&lt;/span&gt;
+&lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;logging.config&lt;/span&gt;
+&lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;os&lt;/span&gt;
+&lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;os.path&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;setup&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;path&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;level&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;not&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;os&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;path&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;exists&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;path&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;os&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;makedirs&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;path&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+
+    &lt;span class=&quot;n&quot;&gt;path&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;os&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;path&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;join&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;path&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;lconfig&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;dict&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;version&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;formatters&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+            &lt;span class=&quot;s&quot;&gt;'f'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'format'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'&lt;/span&gt;&lt;span class=&quot;si&quot;&gt;%(asctime)&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;s &lt;/span&gt;&lt;span class=&quot;si&quot;&gt;%(funcName)-12&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;s &lt;/span&gt;&lt;span class=&quot;si&quot;&gt;%(lineno)&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;d &lt;/span&gt;&lt;span class=&quot;si&quot;&gt;%(levelname)-5&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;s &lt;/span&gt;&lt;span class=&quot;si&quot;&gt;%(message)&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;s'&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+            &lt;span class=&quot;p&quot;&gt;},&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;handlers&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+            &lt;span class=&quot;s&quot;&gt;'c'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'class'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'logging.StreamHandler'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+                   &lt;span class=&quot;s&quot;&gt;'formatter'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'f'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+                   &lt;span class=&quot;s&quot;&gt;'level'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;level&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;},&lt;/span&gt;
+            &lt;span class=&quot;s&quot;&gt;'r'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'class'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'logging.handlers.RotatingFileHandler'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+                   &lt;span class=&quot;s&quot;&gt;'formatter'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'f'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+                   &lt;span class=&quot;s&quot;&gt;'level'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;level&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+                   &lt;span class=&quot;s&quot;&gt;'filename'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;path&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+                   &lt;span class=&quot;s&quot;&gt;'maxBytes'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;10&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1024&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1024&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+                   &lt;span class=&quot;s&quot;&gt;'backupCount'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;20&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+            &lt;span class=&quot;p&quot;&gt;},&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;root&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+            &lt;span class=&quot;s&quot;&gt;'handlers'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'c'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'r'&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;],&lt;/span&gt;
+            &lt;span class=&quot;s&quot;&gt;'level'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;logging&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;DEBUG&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+            &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+        &lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+
+    &lt;span class=&quot;n&quot;&gt;logging&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;config&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dictConfig&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;lconfig&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;get&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;logging&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;getLogger&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;h2 id=&quot;console--errors-to-bugsnag&quot;&gt;Console &amp;amp; Errors to Bugsnag&lt;/h2&gt;
+
+&lt;p&gt;Similar to the last one, however its more orientated to container work where you don’t need/want a log file. It also includes
+error logging to &lt;a href=&quot;https://www.bugsnag.com&quot;&gt;BugSnag&lt;/a&gt;.&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-python&quot; data-lang=&quot;python&quot;&gt;&lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;logging&lt;/span&gt;
+&lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;logging.handlers&lt;/span&gt;
+&lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;logging.config&lt;/span&gt;
+&lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;bugsnag&lt;/span&gt;
+&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;bugsnag.handlers&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;BugsnagHandler&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;setup&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;app_path&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;api_key&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;level&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;bugsnag&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;configure&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+      &lt;span class=&quot;n&quot;&gt;api_key&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;api_key&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+      &lt;span class=&quot;n&quot;&gt;project_root&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;app_path&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+
+    &lt;span class=&quot;n&quot;&gt;lconfig&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;dict&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;version&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;formatters&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+            &lt;span class=&quot;s&quot;&gt;'f'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'format'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'&lt;/span&gt;&lt;span class=&quot;si&quot;&gt;%(asctime)&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;s &lt;/span&gt;&lt;span class=&quot;si&quot;&gt;%(funcName)-12&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;s &lt;/span&gt;&lt;span class=&quot;si&quot;&gt;%(lineno)&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;d &lt;/span&gt;&lt;span class=&quot;si&quot;&gt;%(levelname)-5&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;s &lt;/span&gt;&lt;span class=&quot;si&quot;&gt;%(message)&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;s'&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+            &lt;span class=&quot;p&quot;&gt;},&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;handlers&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+            &lt;span class=&quot;s&quot;&gt;'c'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'class'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'logging.StreamHandler'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+                   &lt;span class=&quot;s&quot;&gt;'formatter'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'f'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+                   &lt;span class=&quot;s&quot;&gt;'level'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;level&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;},&lt;/span&gt;
+            &lt;span class=&quot;s&quot;&gt;'b'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'class'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'bugsnag.handlers.BugsnagHandler'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+                   &lt;span class=&quot;s&quot;&gt;'formatter'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'f'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+                   &lt;span class=&quot;s&quot;&gt;'level'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;logging&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ERROR&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+            &lt;span class=&quot;p&quot;&gt;},&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;root&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+            &lt;span class=&quot;s&quot;&gt;'handlers'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'c'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'b'&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;],&lt;/span&gt;
+            &lt;span class=&quot;s&quot;&gt;'level'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;logging&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;DEBUG&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+            &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+        &lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+
+    &lt;span class=&quot;n&quot;&gt;logging&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;config&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dictConfig&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;lconfig&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;get&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;logger&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;logging&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;getLogger&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;logger&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;h3 id=&quot;notes&quot;&gt;Notes&lt;/h3&gt;
+
+&lt;p&gt;Most logging platforms in modern languages generally encourage loading log configuration from a separate file. I am not a fan of this of this approach
+for small to medium projects. My reasoning is I always try keep the number of files I ship to a minimum to keep things simple.
+I almost always think if you are going to give the end user the option to adjust their log settings then they should do so from a UI or a command line
+switch.&lt;/p&gt;
+</description>
+        <pubDate>Fri, 15 Sep 2017 00:00:00 +0000</pubDate>
+        <link>https://www.pipefail.io/2017/09/15/goto-modules-python-logging/</link>
+        <guid isPermaLink="true">https://www.pipefail.io/2017/09/15/goto-modules-python-logging/</guid>
+        
+        
+      </item>
+    
+      <item>
+        <title>ECS + Gitlab CI/CD Pipeline Skeleton</title>
+        <description>&lt;p&gt;Automating container deployment is an important step into making your infrastructure easier to manage and scale. Administrators should be
+moving away from nursing their systems into higher level thinking where you design once and then automate changes on top of that system.&lt;/p&gt;
+
+&lt;p&gt;Below is a useful starting point for a Gitlab CI skeleton for building and pushing Docker containers into Amazon’s Elastic Container Service.&lt;/p&gt;
+
+&lt;h2 id=&quot;skeleton-gitlab-ciyml&quot;&gt;Skeleton .gitlab-ci.yml&lt;/h2&gt;
+
+&lt;!-- language: markdown--&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;variables:
+    IMAGE_NAME: &quot;amazing-image&quot;
+    CLUSTER_ARN: &quot;ARN of ECS cluster&quot;
+    SERVICE_ARN: &quot;ARN of ECS service&quot;
+    TASK_DEFINITION: &quot;Task definition name in the service&quot;
+    ECR_ADDRESS: &quot;Container registry address&quot;
+    ECS_REGION: &quot;ECS region&quot;
+
+stages:
+    - build
+
+build_job:
+    stage: build
+    artifacts:
+        paths:
+            - task-definition-${CI_COMMIT_SHA}.json
+        expire_in: 52 week
+    script:
+        - docker build -t &quot;${IMAGE_NAME}&quot; .
+        - eval $(aws ecr get-login --no-include-email --region &quot;${ECS_REGION}&quot;)
+        - docker tag &quot;${IMAGE_NAME}:latest&quot; &quot;${ECR_ADDRESS}:${CI_COMMIT_SHA}&quot;
+        - docker push &quot;${ECR_ADDRESS}:${CI_COMMIT_SHA}&quot;
+        - sed -e &quot;s;%BUILD_VERSION%;${CI_COMMIT_SHA};g&quot; task-definition-base.json &amp;gt; task-definition-${CI_COMMIT_SHA}.json
+        - aws ecs register-task-definition --family &quot;${TASK_DEFINITION}&quot; --cli-input-json &quot;file://task-definition-${CI_COMMIT_SHA}.json&quot;
+        - aws ecs update-service --cluster &quot;${CLUSTER_ARN}&quot; --service &quot;${SERVICE_ARN}&quot; --task-definition &quot;${TASK_DEFINITION}&quot;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;operational-breakdown&quot;&gt;Operational Breakdown&lt;/h3&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;Build the image.&lt;/li&gt;
+  &lt;li&gt;Log into ECR.&lt;/li&gt;
+  &lt;li&gt;Tag the latest build we have produced with the ECR address and the commit hash.&lt;/li&gt;
+  &lt;li&gt;Create a new task defintion file locally based off the “base” version in the repository. The new task definition is locked to the version of the docker image produced by replacing the &lt;code class=&quot;highlighter-rouge&quot;&gt;%BUILD_VERSION%&lt;/code&gt; parameter with the commit hash.&lt;/li&gt;
+  &lt;li&gt;Register the new task definition with ECR.&lt;/li&gt;
+  &lt;li&gt;Tell the service to use the latest task definition available (by not specifying a revision with the &lt;code class=&quot;highlighter-rouge&quot;&gt;--task-definition&lt;/code&gt; switch) which will be the new one registered in the previous step.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;A base task definition is required, a oneliner to generate this based on an existing task defintion:
+&lt;code class=&quot;highlighter-rouge&quot;&gt;aws ecs describe-task-definition --task-definition &amp;lt;TASK_DEFINITION_NAME&amp;gt; | jq $({containerDefinitions: .taskDefinition.containerDefinitions, volumes: .taskDefinition.volumes}) | jq $(.containerDefinitions[0].image=)\&quot;&amp;lt;ECR_ADDRESS&amp;gt;:%BUILD_VERSION%\&quot; &amp;gt; task-definition-base.json&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;The &lt;code class=&quot;highlighter-rouge&quot;&gt;&amp;lt;TASK_DEFINITION_NAME&amp;gt;&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;&amp;lt;ECR_ADDRESS&amp;gt;&lt;/code&gt; should be replaced with appropriate values to match your setup and the &lt;code class=&quot;highlighter-rouge&quot;&gt;%BUILD_VERSION%&lt;/code&gt; placeholder should be
+left in the base file as build &lt;strong&gt;step 4&lt;/strong&gt; will replace this with the commit hash.&lt;/p&gt;
+
+&lt;h3 id=&quot;docker-and-cicd-quirks&quot;&gt;Docker and CI/CD Quirks&lt;/h3&gt;
+
+&lt;p&gt;As of writing, Docker 17.06.0 doesn’t gracefully cleanup stale images. This will cause your CI server’s disk to fill up pretty quickly. A good tool to
+cleanup old containers is &lt;a href=&quot;https://github.com/spotify/docker-gc&quot;&gt;docker-gc&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;Given your CI server should be pushing the images to a registry somewhere, there is usually no point keeping old images around. Therefore running docker-gc in an hourly CRON job as shown: &lt;code class=&quot;highlighter-rouge&quot;&gt;MINIMUM_IMAGES_TO_SAVE=1 FORCE_IMAGE_REMOVAL=1 /usr/sbin/docker-gc&lt;/code&gt; should help alleviate maintenance.&lt;/p&gt;
+
+&lt;h3 id=&quot;further-enhancementsconsiderations&quot;&gt;Further Enhancements/Considerations&lt;/h3&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;The skeleton has no concept of production/testing environments.&lt;/li&gt;
+  &lt;li&gt;ECR has a limit of 1000 images and needs to be cleaned up periodically.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;useful-sources&quot;&gt;Useful Sources&lt;/h3&gt;
+&lt;p&gt;&lt;a href=&quot;https://aws.amazon.com/blogs/devops/set-up-a-build-pipeline-with-jenkins-and-amazon-ecs&quot;&gt;1&lt;/a&gt;
+&lt;a href=&quot;https://stackoverflow.com/questions/31485031/ecs-service-automating-deploy-with-new-docker-image&quot;&gt;2&lt;/a&gt;
+&lt;a href=&quot;https://serverfault.com/questions/682340/update-the-container-of-a-service-in-amazon-ecs&quot;&gt;3&lt;/a&gt;&lt;/p&gt;
+</description>
+        <pubDate>Fri, 08 Sep 2017 00:00:00 +0000</pubDate>
+        <link>https://www.pipefail.io/2017/09/08/docker-gitlab-cicd-pipeline/</link>
+        <guid isPermaLink="true">https://www.pipefail.io/2017/09/08/docker-gitlab-cicd-pipeline/</guid>
+        
+        
+      </item>
+    
+      <item>
+        <title>Getting More Container Logs into Cloudwatch</title>
+        <description>&lt;p&gt;Logging container instances stdout running on Amazon ECS is quiet easy if you have a simple application. You can follow &lt;a href=&quot;http://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_awslogs.html&quot;&gt;this guide&lt;/a&gt; and the awslogs agent will catch the output and send it to Cloudwatch.&lt;/p&gt;
+
+&lt;p&gt;However if you have a slightly more complicated application that outputs multiple log files (maybe separate authentication logs?) then you are out of luck. The
+normal awslogs approach above won’t do catch anything but the stdout of the process running in the container.&lt;/p&gt;
+
+&lt;p&gt;If we were sending logs from an EC2 instance to Cloudwatch we would simply download and run the aws-cloudwatch agent Python script and run it when the
+instance spins up. The same approach should work in a container with a little bit of work.&lt;/p&gt;
+
+&lt;p&gt;Some research shows we will need to bring in a few extra dependancies such as python and supervisord. We are going to also use rsyslog
+to facilitate a standard application which logs through syslog.&lt;/p&gt;
+
+&lt;h2 id=&quot;cloudwatch-config&quot;&gt;Cloudwatch Config&lt;/h2&gt;
+
+&lt;h4 id=&quot;etccloudwatch-config&quot;&gt;/etc/cloudwatch-config&lt;/h4&gt;
+
+&lt;!-- language: bash--&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;[general]
+state_file = /var/awslogs/state/agent-state
+ 
+[auth]
+file = /var/log/your_apps_error.log
+log_group_name = /var/log/auth.log
+log_stream_name = {hostname}
+datetime_format = %b %d %H:%M:%S
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;We use &lt;code class=&quot;highlighter-rouge&quot;&gt;{hostname}&lt;/code&gt; instead of &lt;code class=&quot;highlighter-rouge&quot;&gt;{instance_id}&lt;/code&gt; because the &lt;code class=&quot;highlighter-rouge&quot;&gt;{hostname}&lt;/code&gt; will be the unique process name of the container.
+Whereas &lt;code class=&quot;highlighter-rouge&quot;&gt;{instance_id}&lt;/code&gt; comes from the EC2 instance hosting the container.&lt;/p&gt;
+
+&lt;h2 id=&quot;supervisord-configs&quot;&gt;Supervisord Configs:&lt;/h2&gt;
+
+&lt;h4 id=&quot;etcsupervisorconfdrsyslogdconf&quot;&gt;/etc/supervisor/conf.d/rsyslogd.conf&lt;/h4&gt;
+
+&lt;!-- language: bash--&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;[program:rsyslogd]
+command=/usr/sbin/rsyslogd -n
+autorestart=true
+autostart=true
+redirect_stderr=true
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h4 id=&quot;etcsupervisorconfdawslogsconf&quot;&gt;/etc/supervisor/conf.d/awslogs.conf&lt;/h4&gt;
+
+&lt;!-- language: bash--&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;[program:awslogs]
+command=/var/awslogs/bin/awslogs-agent-launcher.sh
+autorestart=true
+autostart=true
+redirect_stderr=true
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h4 id=&quot;etcsupervisorconf&quot;&gt;/etc/supervisor.conf&lt;/h4&gt;
+
+&lt;!-- language: bash--&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;[supervisord]
+nodaemon=true
+
+[include]
+files = /etc/supervisor/conf.d/*.conf
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h2 id=&quot;dockerfile&quot;&gt;Dockerfile&lt;/h2&gt;
+
+&lt;!-- language: bash--&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;FROM ubuntu:16.04
+
+ENV AWS_ACCESS_KEY_ID=&quot;&quot;
+ENV AWS_SECRET_ACCESS_KEY=&quot;&quot;
+
+RUN apt-get update 
+
+RUN apt-get -y install rsyslog curl python supervisor
+
+RUN mkdir -p /var/log/supervisor
+RUN mkdir -p /etc/supervisor/conf.d/
+
+ADD awslogs.conf /etc/supervisor/conf.d
+ADD rsyslogd.conf /etc/supervisor/conf.d
+ADD supervisor.conf /etc/supervisor.conf
+ADD cloudwatch-config /etc/cloudwatch-config
+
+RUN curl https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py &amp;gt; /awslogs-agent-setup.py
+RUN chmod +x /awslogs-agent-setup.py
+RUN /awslogs-agent-setup.py -n -r &quot;us-east-2&quot; -c /etc/cloudwatch-config
+RUN rm /awslogs-agent-setup.py
+
+CMD [&quot;supervisord&quot;, &quot;-c&quot;, &quot;/etc/supervisor.conf&quot;]
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;The above example code uses supervisord to run rsyslog and the awslogs agent in the container. The awslogs agent sends any file that we configure off to Cloudwatch. Obviously the host EC2 instance role has to have the correct IAM policy in place to allow it to actually write the Cloudwatch.&lt;/p&gt;
+</description>
+        <pubDate>Fri, 01 Sep 2017 00:00:00 +0000</pubDate>
+        <link>https://www.pipefail.io/2017/09/01/getting-more-container-logs-into-cloudwatch/</link>
+        <guid isPermaLink="true">https://www.pipefail.io/2017/09/01/getting-more-container-logs-into-cloudwatch/</guid>
+        
+        
+      </item>
+    
+      <item>
+        <title>Working around Systemd on Docker</title>
+        <description>&lt;p&gt;It’s very tempting to want to use SystemD with Docker. However when you go
+down that rabbit hole you quickly realise how difficult and hacky it becomes.&lt;/p&gt;
+
+&lt;p&gt;Instead a great alternative is to use &lt;a href=&quot;http://supervisord.org&quot;&gt;Supervisord&lt;/a&gt;. Supervisord makes it really easy
+to get off the ground running and daemonise processes. It will also do fancy things restart the process if it
+quits unexpectedly.&lt;/p&gt;
+
+&lt;h2 id=&quot;example---running-an-ssh-server&quot;&gt;Example - Running an SSH Server&lt;/h2&gt;
+
+&lt;p&gt;Here is a simple example that runs a basic SSH server in a Ubuntu 16.04 container.&lt;/p&gt;
+
+&lt;!-- language: bash--&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;FROM ubuntu:16.04
+
+EXPOSE 22
+
+RUN apt-get update
+
+RUN apt-get -y install openssh-server
+RUN mkdir -p /var/run/sshd
+RUN echo 'root:password' | chpasswd
+RUN sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+
+RUN apt-get -y install supervisor &amp;amp;&amp;amp; \
+        mkdir -p /var/log/supervisor
+
+RUN mkdir -p /etc/supervisor/conf.d/
+
+RUN echo &quot;[supervisord] \n\
+nodaemon=true \n\
+[include] \n\
+files = /etc/supervisor/conf.d/*.conf&quot; &amp;gt; /etc/supervisor.conf
+
+RUN echo &quot;[program:ssh] \n\
+command=/usr/sbin/sshd -D \n\
+autorestart=true \n\
+autostart=true \n\
+redirect_stderr=true&quot; &amp;gt; /etc/supervisor/conf.d/ssh.conf
+
+CMD [&quot;supervisord&quot;, &quot;-c&quot;, &quot;/etc/supervisor.conf&quot;]
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Build: &lt;code class=&quot;highlighter-rouge&quot;&gt;docker build -t ssh_server .&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;Run:   &lt;code class=&quot;highlighter-rouge&quot;&gt;docker run -p 127.0.0.1:22:22 -i -t ssh_server&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;Login: &lt;code class=&quot;highlighter-rouge&quot;&gt;ssh root@127.0.0.1&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;This will bind the SSH server to the localhost interface on the host machine. If you are running a SSH server on your host then you may want to change the port the container binds to on the host.&lt;/p&gt;
+
+&lt;h3 id=&quot;notes&quot;&gt;Notes:&lt;/h3&gt;
+&lt;ul&gt;
+  &lt;li&gt;Additional config files can be added to the &lt;code class=&quot;highlighter-rouge&quot;&gt;/etc/supervisor/conf.d&lt;/code&gt; directory&lt;/li&gt;
+  &lt;li&gt;Supervisord is designed to work with processes that run in the forground, hence the &lt;code class=&quot;highlighter-rouge&quot;&gt;-D&lt;/code&gt; switch tells SSH Daemon to run in the foreground.&lt;/li&gt;
+  &lt;li&gt;If a given process won’t run in the foreground, then a &lt;a href=&quot;https://serverfault.com/a/608073&quot;&gt;process proxy will be required&lt;/a&gt;.&lt;/li&gt;
+&lt;/ul&gt;
+
+</description>
+        <pubDate>Fri, 25 Aug 2017 00:00:00 +0000</pubDate>
+        <link>https://www.pipefail.io/2017/08/25/docker-systemd-alternatives/</link>
+        <guid isPermaLink="true">https://www.pipefail.io/2017/08/25/docker-systemd-alternatives/</guid>
+        
+        
+      </item>
+    
+      <item>
+        <title>GTK Sharp 3 Adventures</title>
+        <description>&lt;p&gt;GTK Sharp 3 is a good UI toolkit however as usual when you start to get deep
+into these toolkits you often discover lots of not so obvious traps.&lt;/p&gt;
+
+&lt;h2 id=&quot;cairo-coordinate-modes&quot;&gt;Cairo Coordinate Modes&lt;/h2&gt;
+
+&lt;p&gt;Cairo has two coordinate modes, Device and User.&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Device mode coordinates are relative to the display: 0,0 = top left corner of the display.&lt;/li&gt;
+  &lt;li&gt;User mode coordinates are relative to the widget: 0,0 = top left corner of the widget.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&quot;basic-overriding-of-ondrawn-method&quot;&gt;Basic overriding of OnDrawn() method:&lt;/h2&gt;
+
+&lt;p&gt;We have to call ShouldDrawWindow() and TransformToWindow() to transform
+the coordinate space from widget relative to display relative.
+Without this transform the widget won’t draw correctly when it is placed
+in a ViewPort.&lt;/p&gt;
+
+&lt;!-- language: csharp --&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;protected override bool OnDrawn (Cairo.Context context)
+{
+	if (Gtk.CairoHelper.ShouldDrawWindow (context, Window))
+	{
+		context.Save ();
+		Gtk.CairoHelper.TransformToWindow (context, this, Window);
+
+		// Draw stuff here!
+
+		context.Restore ();
+	}
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h2 id=&quot;propagating-draw-to-children-widgets&quot;&gt;Propagating Draw to children widgets&lt;/h2&gt;
+
+&lt;!-- language: csharp --&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;foreach (Widget w in AllChildren)
+{
+	context.Save ();
+	PropagateDraw (w, context);
+	context.Restore ();
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h2 id=&quot;adding-css-to-a-widget-at-run-time&quot;&gt;Adding CSS to a Widget at Run Time&lt;/h2&gt;
+
+&lt;!-- language: csharp --&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;public static CssProvider AddCss(Widget widget, string css)
+{
+	CssProvider provider = new CssProvider ();
+	provider.LoadFromData (css);
+	widget.StyleContext.AddProvider (provider, 600);
+	return provider;
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h2 id=&quot;buttons-inherits-container&quot;&gt;Buttons Inherits Container&lt;/h2&gt;
+
+&lt;p&gt;When you set the Image or Label property on a Button instance, you are either adding a Image or a Label to the container.
+This means if you wanted to use Pango Markup on a Buttons text, you need to call Add() on the
+Button instance with a new Label. For example:&lt;/p&gt;
+
+&lt;!-- language: csharp --&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Label l = new Label();
+l.UseMarkup = true;
+l.Text = &quot;&amp;lt;span foreground=&quot;blue&quot; size=&quot;x-large&quot;&amp;gt;Blue text&amp;lt;/span&amp;gt; is &amp;lt;i&amp;gt;cool&amp;lt;/i&amp;gt;!&quot;&quot;
+
+Button b = new Button();
+b.Add(l);
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+</description>
+        <pubDate>Fri, 18 Aug 2017 00:00:00 +0000</pubDate>
+        <link>https://www.pipefail.io/2017/08/18/gtk-sharp-3/</link>
+        <guid isPermaLink="true">https://www.pipefail.io/2017/08/18/gtk-sharp-3/</guid>
+        
+        
+      </item>
+    
+      <item>
+        <title>Seting up a Debian Archive Mirror</title>
+        <description>&lt;p&gt;Waiting for packages to download is the worst, especially when you are doing lots of Root File System development.
+Theres a relatively easy solution to this: setup your own Debian Archive Mirror. I have successfully used the following steps on a ARM board and an Intel NUC.&lt;/p&gt;
+
+&lt;p&gt;I like to learn by example, so I will use example parameters listed below for the steps.&lt;/p&gt;
+
+&lt;h3 id=&quot;parameters&quot;&gt;Parameters:&lt;/h3&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Mirror name: &lt;code class=&quot;highlighter-rouge&quot;&gt;Your Company Package Mirror&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;Hostname: &lt;code class=&quot;highlighter-rouge&quot;&gt;yourcompany.com&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;Install directory: &lt;code class=&quot;highlighter-rouge&quot;&gt;/opt/ftpsync&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;Architectures Synced: &lt;code class=&quot;highlighter-rouge&quot;&gt;armhf source amd64 i386 al&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;Admin email: &lt;code class=&quot;highlighter-rouge&quot;&gt;admin@yourcompany.com&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;Email smtp: &lt;code class=&quot;highlighter-rouge&quot;&gt;yourcompany.com:465&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;Debian repo dir: &lt;code class=&quot;highlighter-rouge&quot;&gt;/var/www/packages/debian&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;Username on server: &lt;code class=&quot;highlighter-rouge&quot;&gt;user1&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;Ftpsync install dir: &lt;code class=&quot;highlighter-rouge&quot;&gt;/opt/ftpsync&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;setup&quot;&gt;Setup:&lt;/h3&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;
+    &lt;p&gt;Download the latest version of ftpsync: &lt;code class=&quot;highlighter-rouge&quot;&gt;https://ftp-master.debian.org/ftpsync.tar.gz&lt;/code&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Extract to: &lt;code class=&quot;highlighter-rouge&quot;&gt;/opt/ftpsync&lt;/code&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Dependancies: &lt;code class=&quot;highlighter-rouge&quot;&gt;heirloom-mailx ssmtp apache2 rsync&lt;/code&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Setup SSMTP configuration file: &lt;code class=&quot;highlighter-rouge&quot;&gt;/etc/ssmtp/ssmtp.conf&lt;/code&gt;&lt;/p&gt;
+
+    &lt;p&gt;&lt;!-- language: bash --&gt;&lt;/p&gt;
+
+    &lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt; # Config file for sSMTP sendmail
+ #
+ # The person who gets all mail for userids &amp;lt; 1000
+ # Make this empty to disable rewriting.
+ root=admin@yourcompany.com
+
+ # The place where the mail goes. The actual machine name is required no 
+ # MX records are consulted. Commonly mailhosts are named mail.domain.com
+
+ # Where will the mail seem to come from?
+ rewriteDomain=yourcompany.com
+
+ # The full hostname
+ hostname=yourcompany.com
+
+ # Are users allowed to set their own From: address?
+ # YES - Allow the user to specify their own From: address
+ # NO - Use the system generated From: address
+ FromLineOverride=Yes
+ AuthUser=admin@yourcompany.com
+ AuthPass=****
+ mailhub=yourcompany.com:465
+ UseTLS=Yes
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;    &lt;/div&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Setup SSMTP revaliases: &lt;code class=&quot;highlighter-rouge&quot;&gt;/etc/ssmtp/revaliases&lt;/code&gt;&lt;/p&gt;
+
+    &lt;p&gt;&lt;!-- language: bash --&gt;&lt;/p&gt;
+
+    &lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt; roott:admin@yourcompany.com:yourcompany.com:465
+ user1:admin@yourcompany.com:yourcompany.com:465
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;    &lt;/div&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Test SSMTP settings: &lt;code class=&quot;highlighter-rouge&quot;&gt;echo &quot;Helloworld&quot; | mailx -s &quot;This is a test&quot; &quot;admin@yourcomany.com&quot;&lt;/code&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Setup apache2: &lt;code class=&quot;highlighter-rouge&quot;&gt;/etc/apache2/sites-available/000-default.conf&lt;/code&gt;&lt;/p&gt;
+
+    &lt;p&gt;&lt;!-- language: bash --&gt;&lt;/p&gt;
+
+    &lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt; &amp;lt;VirtualHost *:80&amp;gt;
+     # The ServerName directive sets the request scheme, hostname and port that
+     # the server uses to identify itself. This is used when creating
+     # redirection URLs. In the context of virtual hosts, the ServerName
+     # specifies what hostname must appear in the request's Host: header to
+     # match this virtual host. For the default virtual host (this file) this
+     # value is not decisive as it is used as a last resort host regardless.
+     # However, you must set it for any further virtual host explicitly.
+     ServerName yourcompany.com
+
+     ServerAdmin admin@yourcompany.com
+     DocumentRoot /var/www/packages
+
+     # Available loglevels: trace8, ..., trace1, debug, info, notice, warn,
+     # error, crit, alert, emerg.
+     # It is also possible to configure the loglevel for particular
+     # modules, e.g.
+     #LogLevel info ssl:warn
+
+     ErrorLog ${APACHE_LOG_DIR}/error.log
+     CustomLog ${APACHE_LOG_DIR}/access.log combined
+
+     # For most configuration files from conf-available/, which are
+     # enabled or disabled at a global level, it is possible to
+     # include a line for only one particular virtual host. For example the
+     # following line enables the CGI configuration for this host only
+     # after it has been globally disabled with &quot;a2disconf&quot;.
+     #Include conf-available/serve-cgi-bin.conf
+ &amp;lt;/VirtualHost&amp;gt;
+
+ &amp;lt;Directory &quot;/var/www/packages”&amp;gt;
+     Options +Indexes +SymlinksIfOwnerMatch
+ &amp;lt;/Directory&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;    &lt;/div&gt;
+  &lt;/li&gt;
+  &lt;li&gt;Setup the ServerName globally:
+    &lt;ol&gt;
+      &lt;li&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;echo &quot;ServerName yourcompany.com&quot; | sudo tee /etc/apache2/conf-available/fqdn.conf&lt;/code&gt;&lt;/li&gt;
+      &lt;li&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;sudo a2enconf fqdn&lt;/code&gt;&lt;/li&gt;
+      &lt;li&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;sudo service apache2 reload&lt;/code&gt;&lt;/li&gt;
+      &lt;li&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;sudo apache2ctl configtest&lt;/code&gt;&lt;/li&gt;
+    &lt;/ol&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Setup ftpsync config: /opt/ftpsync/etc/ftpsync.conf.
+ The config is relatively straight forward. Picking a fast mirror is important. For me, the primary Australian Debian mirror (ftp.au.debian.org) was the slowest. I would suggest using a tool such as netselect-apt to find the fastest mirror nearby. The fastest mirror for me was the Monash University mirror, however I could not use it as not all mirrors contain all the packages you want. For example I needed the armhf architectures which it did not contain.&lt;/p&gt;
+
+    &lt;p&gt;You can also use check the RSYNC_HOST is set correctly by using rsync directly: &lt;code class=&quot;highlighter-rouge&quot;&gt;rsync debian.mirror.digitalpacific.com.au::&lt;/code&gt;. The two colons on the end are not a typo. Normally you would put the rsync module after the colons so leaving it empty is essentially a wildcard telling the server to list all the modules. You shouldn’t include the colons when you set RSYNC_HOST in the config.&lt;/p&gt;
+
+    &lt;p&gt;I would also suggest uncommenting the LOCK variable so that ftpsync tool is protected from concurrent instances running. You also shouldn’t neeed to edit anything below the BE VERY CAREFUL lines.&lt;/p&gt;
+
+    &lt;p&gt;Example config using our parameters above:&lt;/p&gt;
+
+    &lt;p&gt;&lt;!-- language: bash --&gt;&lt;/p&gt;
+
+    &lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt; ## Mirrorname. This is used for things like the trace file name and should always
+ ## be the full hostname of the mirror.
+ MIRRORNAME=Your Company Package Mirror
+
+ ## Destination of the mirrored files. Should be an empty directory.
+ ## CAREFUL, this directory will contain the mirror. Everything else
+ ## that might have happened to be in there WILL BE GONE after the mirror sync!
+ TO=&quot;/var/www/packages/debian&quot;
+
+ ## The upstream name of the rsync share.
+ ##
+ ## You can find out what share names your upstream mirror supports by running
+ ## rsync YOURUPSTREAMSERVER::
+ ## (You might have to export RSYNC_USER/RSYNC_PASSWORD for this to work)
+ RSYNC_PATH=&quot;debian&quot;
+
+ ## The host we mirror from
+ RSYNC_HOST=&quot;debian.mirror.digitalpacific.com.au&quot;
+
+ ## In case we need a user to access the rsync share at our upstream host
+ #RSYNC_USER=
+
+ ## If we need a user we also need a password
+ #RSYNC_PASSWORD=
+
+ ## Set to &quot;true&quot; to tunnel your rsync through stunnel.
+ ##
+ ## ftpsync will then use rsync's -e option to wrap the connection
+ ## with bin/rsync-ssl-tunnel which sets up an stunnel to connect to
+ ## RSYNC_SSL_PORT on the remote site.  (This requires server
+ ##  support, obviously.)
+ ##
+ ## ftpsync can use either stunnel4, stunnel4-old, or socat to set up the
+ ## encrypted tunnel.
+ ##  o stunnel4 requires at least stunnel4 version 5.15 built aginst openssl
+ ##    1.0.2 or later such that the stunnel build supports the checkHost
+ ##    service-level option.  This will cause stunnel to verify both the
+ ##    peer certificate's validity and that it's actually for the host we wish
+ ##    to connect to.
+ ##  o stunnel4-old will skip the checkHost check.  As such it will connect
+ ##    to any peer that is able to present a valid certificate, regardless of
+ ##    which name it is made out to.
+ ##  o socat will verify the peer certificate name only starting with version
+ ##    1.7.3 (Debian 9.0).
+ ## To test if things work, you can run
+ ##  RSYNC_SSL_PORT=1873 RSYNC_SSL_CAPATH=/etc/ssl/certs RSYNC_SSL_METHOD=socat rsync -e 'bin/rsync-ssl-tunnel' &amp;lt;server&amp;gt;::
+ #RSYNC_SSL=false
+ #RSYNC_SSL_PORT=1873
+ #RSYNC_SSL_CAPATH=/etc/ssl/certs
+ #RSYNC_SSL_METHOD=stunnel4
+
+ ## In which directory should logfiles end up
+ ## Note that BASEDIR defaults to $HOME, but can be set before calling the
+ ## ftpsync script to any value you want (for example using pam_env)
+ LOGDIR=&quot;${BASEDIR}/log&quot;
+
+ ## Name of our own logfile.
+ ## Note that ${NAME} is set by the ftpsync script depending on the way it
+ ## is called. See README for a description of the multi-archive capability
+ ## and better always include ${NAME} in this path.
+ LOG=&quot;${LOGDIR}/${NAME}.log&quot;
+
+ ## The script can send logs (or error messages) to a mail address.
+ ## If this is unset it will default to the local root user unless it is run
+ ## on a .debian.org machine where it will default to the mirroradm people.
+ MAILTO=&quot;admin@yourcompany.com&quot;
+
+ ## If you do want a mail about every single sync, set this to false
+ ## Everything else will only send mails if a mirror sync fails
+ ERRORSONLY=&quot;false&quot;
+
+ ## If you want the logs to also include output of rsync, set this to true.
+ ## Careful, the logs can get pretty big, especially if it is the first mirror
+ ## run
+ FULLLOGS=&quot;false&quot;
+
+ ## If you do want to exclude files from the mirror run, put --exclude statements here.
+ ## See rsync(1) for the exact syntax, these are passed to rsync as written here.
+ ## DO NOT TRY TO EXCLUDE ARCHITECTURES OR SUITES WITH THIS, IT WILL NOT WORK!
+ #EXCLUDE=&quot;&quot;
+
+ ## If you do want to exclude an architecture, this is for you.
+ ## Use as space seperated list.
+ ## Possible values are:
+ ## alpha amd64 arm arm64 armel armhf hppa hurd-i386 i386 ia64 kfreebsd-amd64
+ ## kfreebsd-i386 m68k mipsel mips powerpc ppc64el s390 s390x sh sparc source
+ ## eg. ARCH_EXCLUDE=&quot;alpha arm arm64 armel mipsel mips s390 sparc&quot;
+ ## An unset value will mirror all architectures (default!)
+ ## Mutually exclusive with ARCH_INCLUDE.
+ ## Notice: source must not be excluded on an official/public mirror
+ #ARCH_EXCLUDE=&quot;&quot;
+
+ ## If you do want to include only a set of architectures, this is for you.
+ ## Use as space seperated list.
+ ## Possible values are:
+ ## alpha amd64 arm arm64 armel armhf hppa hurd-i386 i386 ia64 kfreebsd-amd64
+ ## kfreebsd-i386 m68k mipsel mips powerpc ppc64el s390 s390x sh sparc source
+ ## eg. ARCH_INCLUDE=&quot;amd64 i386 source&quot;
+ ## An unset value will mirror all architectures (default!)
+ ## Arch all will be included automatically if one binary arch is included.
+ ## Mutually exclusive with ARCH_EXCLUDE.
+ ## Notice: source needs to be included on an official/public mirror
+ ARCH_INCLUDE=&quot;armhf source amd64 i386 all&quot;
+
+ ## Do we have leaf mirror to signal we are done and they should sync?
+ ## If so set it to true and make sure you configure runmirrors.mirrors
+ ## and runmirrors.conf for your need.
+ #HUB=false
+
+ ## We do create three logfiles for every run. To save space we rotate them, this
+ ## defines how many we keep
+ LOGROTATE=14
+
+ ## Our own lockfile (only one sync should run at any time)
+ LOCK=&quot;${TO}/Archive-Update-in-Progress-${MIRRORNAME}&quot;
+
+ # Timeout for the lockfile, in case we have bash older than v4 (and no /proc)
+ # LOCKTIMEOUT=${LOCKTIMEOUT:-3600}
+
+ ## The following file is used to make sure we will end up with a correctly
+ ## synced mirror even if we get multiple pushes in a short timeframe
+ #UPDATEREQUIRED=&quot;${TO}/Archive-Update-Required-${MIRRORNAME}&quot;
+
+ ## Number of seconds to sleep before retrying to sync whenever upstream
+ ## is found to be updating while our update is running
+ #UIPSLEEP=1200
+
+ ## Number of times the update operation will be retried when upstream
+ ## is found to be updating while our update is running.
+ ## Note that these are retries, so: 1st attempt + retries = total attempts
+ #UIPRETRIES=3
+
+ ## The trace file is used by a mirror check tool to see when we last
+ ## had a successful mirror sync. Make sure that it always ends up in
+ ## project/trace and always shows the full hostname.
+ ## This is *relative* to ${TO}
+ #TRACE=&quot;project/trace/${MIRRORNAME}&quot;
+
+ ## The trace file can have different format/contents. Here you can select
+ ## what it will be.
+ ## Possible values are
+ ## &quot;full&quot;  - all information
+ ## &quot;terse&quot; - partial, ftpsync version and local hostname
+ ## &quot;date&quot;  - basic, timestamp only (date -u)
+ ## &quot;touch&quot; - just touch the file in existance
+ ## &quot;none&quot;  - no tracefile at all
+ ##
+ ## Default and required value for Debian mirrors is full.
+ #EXTENDEDTRACE=&quot;full&quot;
+
+ ## The local hostname to be written to the trace file.
+ #TRACEHOST=&quot;$(hostname -f)&quot;
+
+ ## We sync our mirror using rsync (everything else would be insane), so
+ ## we need a few options set.
+ ## The rsync program
+ #RSYNC=rsync
+
+ ## Extra rsync options as defined by the local admin.
+ ## There is no default by ftpsync.
+ ##
+ ## Please note that these options are added to EVERY rsync call.
+ ## Also note that these are added at the beginning of the rsync call, as
+ ## the very first set of options.
+ ## Please ensure you do not add a conflict with the usual rsync options as
+ ## shown below.
+ #RSYNC_EXTRA=&quot;-vvv&quot;
+
+ ## limit I/O bandwidth. Value is KBytes per second, unset or 0 means unlimited
+ #RSYNC_BW=&quot;&quot;
+
+ ## BE VERY CAREFUL WHEN YOU CHANGE THE RSYNC_OPTIONS! BETTER DON'T!
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;    &lt;/div&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Setup a cron job. You should aim to synchronise your modules 4 times a day. However if the upstream server you are using is in the middle of a sync then the update will fail.&lt;/p&gt;
+
+    &lt;!-- language: bash --&gt;
+
+    &lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;$ crontab -e
+00 03 * * * /opt/ftpsync/bin/ftpsync sync:all
+00 06 * * * /opt/ftpsync/bin/ftpsync sync:all
+00 12 * * * /opt/ftpsync/bin/ftpsync sync:all
+00 21 * * * /opt/ftpsync/bin/ftpsync sync:all
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;    &lt;/div&gt;
+  &lt;/li&gt;
+  &lt;li&gt;Wait for your first sync to finish!&lt;/li&gt;
+&lt;/ol&gt;
+</description>
+        <pubDate>Sat, 14 Jan 2017 00:00:00 +0000</pubDate>
+        <link>https://www.pipefail.io/2017/01/14/dpkg-repo/</link>
+        <guid isPermaLink="true">https://www.pipefail.io/2017/01/14/dpkg-repo/</guid>
+        
+        
+      </item>
+    
   </channel>
 </rss>

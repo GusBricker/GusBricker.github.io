@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="pipefail">
+
+    <title>Getting More Container Logs into Cloudwatch - pipefail</title>
+
+    <link rel="canonical" href="https://www.pipefail.io/2017/09/01/getting-more-container-logs-into-cloudwatch/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/clean-blog.css">
+
+    <!-- Pygments Github CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom Fonts -->
+    <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.1.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+    <link href='https://fonts.googleapis.com/css?family=Lora:400,700,400italic,700italic' rel='stylesheet' type='text/css'>
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800' rel='stylesheet' type='text/css'>
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+    <!-- Begin Jekyll SEO tag v2.3.0 -->
+<title>Getting More Container Logs into Cloudwatch | pipefail</title>
+<meta property="og:title" content="Getting More Container Logs into Cloudwatch" />
+<meta name="author" content="Chris Lapa" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Logging container instances stdout running on Amazon ECS is quiet easy if you have a simple application. You can follow this guide and the awslogs agent will catch the output and send it to Cloudwatch." />
+<meta property="og:description" content="Logging container instances stdout running on Amazon ECS is quiet easy if you have a simple application. You can follow this guide and the awslogs agent will catch the output and send it to Cloudwatch." />
+<link rel="canonical" href="https://www.pipefail.io/2017/09/01/getting-more-container-logs-into-cloudwatch/" />
+<meta property="og:url" content="https://www.pipefail.io/2017/09/01/getting-more-container-logs-into-cloudwatch/" />
+<meta property="og:site_name" content="pipefail" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2017-09-01T00:00:00+00:00" />
+<script type="application/ld+json">
+{"name":null,"description":"Logging container instances stdout running on Amazon ECS is quiet easy if you have a simple application. You can follow this guide and the awslogs agent will catch the output and send it to Cloudwatch.","url":"https://www.pipefail.io/2017/09/01/getting-more-container-logs-into-cloudwatch/","headline":"Getting More Container Logs into Cloudwatch","dateModified":"2017-09-01T00:00:00+00:00","datePublished":"2017-09-01T00:00:00+00:00","sameAs":null,"@type":"BlogPosting","author":{"@type":"Person","name":"Chris Lapa"},"image":null,"publisher":null,"mainEntityOfPage":{"@type":"WebPage","@id":"https://www.pipefail.io/2017/09/01/getting-more-container-logs-into-cloudwatch/"},"@context":"http://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">pipefail</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+            <ul class="nav navbar-nav navbar-right">
+                <li>
+                    <a href="/">Home</a>
+                </li>
+                
+                <li>
+                    <a href="/about/">About</a>
+                </li>
+                
+                <li>
+                    <a href="/contact/">Contact</a>
+                </li>
+                
+                <li>
+                    <a href="/ctf/">CTF's</a>
+                </li>
+                
+                <li>
+                    
+                </li>
+                
+                <li>
+                    
+                </li>
+                
+                <li>
+                    
+                </li>
+                
+                <li>
+                    
+                </li>
+                
+            </ul>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+
+    <script type="text/javascript">
+    /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+    var disqus_shortname = 'pipefail'; // required: replace example with your forum shortname
+    /* var disqus_developer = 1; // Comment out when the site is live */
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'https://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+    </script>
+    <!-- Post Header -->
+<header class="intro-header" style="background-image: url('/img/docker-ascii.png')">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <h1 style=color:#80bfff >Getting More Container Logs into Cloudwatch</h1>
+                    
+                    <h2 style=color:#0066cc class="subheading">Moooaaarrrr Logs</h2>
+                    
+                    <span style=color:#0059b3 class="meta">Posted by Chris Lapa on September 1, 2017</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+
+				<p>Logging container instances stdout running on Amazon ECS is quiet easy if you have a simple application. You can follow <a href="http://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_awslogs.html">this guide</a> and the awslogs agent will catch the output and send it to Cloudwatch.</p>
+
+<p>However if you have a slightly more complicated application that outputs multiple log files (maybe separate authentication logs?) then you are out of luck. The
+normal awslogs approach above won’t do catch anything but the stdout of the process running in the container.</p>
+
+<p>If we were sending logs from an EC2 instance to Cloudwatch we would simply download and run the aws-cloudwatch agent Python script and run it when the
+instance spins up. The same approach should work in a container with a little bit of work.</p>
+
+<p>Some research shows we will need to bring in a few extra dependancies such as python and supervisord. We are going to also use rsyslog
+to facilitate a standard application which logs through syslog.</p>
+
+<h2 id="cloudwatch-config">Cloudwatch Config</h2>
+
+<h4 id="etccloudwatch-config">/etc/cloudwatch-config</h4>
+
+<!-- language: bash-->
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>[general]
+state_file = /var/awslogs/state/agent-state
+ 
+[auth]
+file = /var/log/your_apps_error.log
+log_group_name = /var/log/auth.log
+log_stream_name = {hostname}
+datetime_format = %b %d %H:%M:%S
+</code></pre></div></div>
+
+<p>We use <code class="highlighter-rouge">{hostname}</code> instead of <code class="highlighter-rouge">{instance_id}</code> because the <code class="highlighter-rouge">{hostname}</code> will be the unique process name of the container.
+Whereas <code class="highlighter-rouge">{instance_id}</code> comes from the EC2 instance hosting the container.</p>
+
+<h2 id="supervisord-configs">Supervisord Configs:</h2>
+
+<h4 id="etcsupervisorconfdrsyslogdconf">/etc/supervisor/conf.d/rsyslogd.conf</h4>
+
+<!-- language: bash-->
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>[program:rsyslogd]
+command=/usr/sbin/rsyslogd -n
+autorestart=true
+autostart=true
+redirect_stderr=true
+</code></pre></div></div>
+
+<h4 id="etcsupervisorconfdawslogsconf">/etc/supervisor/conf.d/awslogs.conf</h4>
+
+<!-- language: bash-->
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>[program:awslogs]
+command=/var/awslogs/bin/awslogs-agent-launcher.sh
+autorestart=true
+autostart=true
+redirect_stderr=true
+</code></pre></div></div>
+
+<h4 id="etcsupervisorconf">/etc/supervisor.conf</h4>
+
+<!-- language: bash-->
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>[supervisord]
+nodaemon=true
+
+[include]
+files = /etc/supervisor/conf.d/*.conf
+</code></pre></div></div>
+
+<h2 id="dockerfile">Dockerfile</h2>
+
+<!-- language: bash-->
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>FROM ubuntu:16.04
+
+ENV AWS_ACCESS_KEY_ID=""
+ENV AWS_SECRET_ACCESS_KEY=""
+
+RUN apt-get update 
+
+RUN apt-get -y install rsyslog curl python supervisor
+
+RUN mkdir -p /var/log/supervisor
+RUN mkdir -p /etc/supervisor/conf.d/
+
+ADD awslogs.conf /etc/supervisor/conf.d
+ADD rsyslogd.conf /etc/supervisor/conf.d
+ADD supervisor.conf /etc/supervisor.conf
+ADD cloudwatch-config /etc/cloudwatch-config
+
+RUN curl https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py &gt; /awslogs-agent-setup.py
+RUN chmod +x /awslogs-agent-setup.py
+RUN /awslogs-agent-setup.py -n -r "us-east-2" -c /etc/cloudwatch-config
+RUN rm /awslogs-agent-setup.py
+
+CMD ["supervisord", "-c", "/etc/supervisor.conf"]
+</code></pre></div></div>
+
+<p>The above example code uses supervisord to run rsyslog and the awslogs agent in the container. The awslogs agent sends any file that we configure off to Cloudwatch. Obviously the host EC2 instance role has to have the correct IAM policy in place to allow it to actually write the Cloudwatch.</p>
+
+
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2017/08/25/docker-systemd-alternatives/" data-toggle="tooltip" data-placement="top" title="Working around Systemd on Docker">&larr; Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2017/09/08/docker-gitlab-cicd-pipeline/" data-toggle="tooltip" data-placement="top" title="ECS + Gitlab CI/CD Pipeline Skeleton">Next Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+                <div id="disqus_thread"></div>
+                    <script type="text/javascript">
+                        /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+                        var disqus_shortname = 'pipefail'; // required: replace example with your forum shortname
+                        // var disqus_developer = 1; // Comment out when the site is live
+                        var disqus_identifier = "/2017/09/01/getting-more-container-logs-into-cloudwatch/";
+
+                        /* * * DON'T EDIT BELOW THIS LINE * * */
+                        (function() {
+                            var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+                            dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+                            (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+                        })();
+                    </script>
+                    <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+                    <a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+<hr>
+
+
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    <li>
+                        <a href="/feed.xml">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    <li>
+                        <a href="https://twitter.com/Gus_Bricker">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-twitter fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    
+                    <li>
+                        <a href="https://github.com/GusBricker">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li>
+                        <a href="http://ko-fi.com/Buttons/Buy/574E2ZGZ45MK">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-coffee fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                </ul>
+                <p class="copyright text-muted">Copyright &copy; Chris Lapa 2017</p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/clean-blog.min.js "></script>
+
+</div>
+</body>
+
+</html>

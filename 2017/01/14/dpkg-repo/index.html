@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="pipefail">
+
+    <title>Seting up a Debian Archive Mirror - pipefail</title>
+
+    <link rel="canonical" href="https://www.pipefail.io/2017/01/14/dpkg-repo/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/clean-blog.css">
+
+    <!-- Pygments Github CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom Fonts -->
+    <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.1.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+    <link href='https://fonts.googleapis.com/css?family=Lora:400,700,400italic,700italic' rel='stylesheet' type='text/css'>
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800' rel='stylesheet' type='text/css'>
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+    <!-- Begin Jekyll SEO tag v2.3.0 -->
+<title>Seting up a Debian Archive Mirror | pipefail</title>
+<meta property="og:title" content="Seting up a Debian Archive Mirror" />
+<meta name="author" content="Chris Lapa" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Waiting for packages to download is the worst, especially when you are doing lots of Root File System development. Theres a relatively easy solution to this: setup your own Debian Archive Mirror. I have successfully used the following steps on a ARM board and an Intel NUC." />
+<meta property="og:description" content="Waiting for packages to download is the worst, especially when you are doing lots of Root File System development. Theres a relatively easy solution to this: setup your own Debian Archive Mirror. I have successfully used the following steps on a ARM board and an Intel NUC." />
+<link rel="canonical" href="https://www.pipefail.io/2017/01/14/dpkg-repo/" />
+<meta property="og:url" content="https://www.pipefail.io/2017/01/14/dpkg-repo/" />
+<meta property="og:site_name" content="pipefail" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2017-01-14T00:00:00+00:00" />
+<script type="application/ld+json">
+{"name":null,"description":"Waiting for packages to download is the worst, especially when you are doing lots of Root File System development. Theres a relatively easy solution to this: setup your own Debian Archive Mirror. I have successfully used the following steps on a ARM board and an Intel NUC.","url":"https://www.pipefail.io/2017/01/14/dpkg-repo/","headline":"Seting up a Debian Archive Mirror","dateModified":"2017-01-14T00:00:00+00:00","datePublished":"2017-01-14T00:00:00+00:00","sameAs":null,"@type":"BlogPosting","author":{"@type":"Person","name":"Chris Lapa"},"image":null,"publisher":null,"mainEntityOfPage":{"@type":"WebPage","@id":"https://www.pipefail.io/2017/01/14/dpkg-repo/"},"@context":"http://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+</head>
+
+
+<body>
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">pipefail</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+            <ul class="nav navbar-nav navbar-right">
+                <li>
+                    <a href="/">Home</a>
+                </li>
+                
+                <li>
+                    <a href="/about/">About</a>
+                </li>
+                
+                <li>
+                    <a href="/contact/">Contact</a>
+                </li>
+                
+                <li>
+                    <a href="/ctf/">CTF's</a>
+                </li>
+                
+                <li>
+                    
+                </li>
+                
+                <li>
+                    
+                </li>
+                
+                <li>
+                    
+                </li>
+                
+                <li>
+                    
+                </li>
+                
+            </ul>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+
+    <script type="text/javascript">
+    /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+    var disqus_shortname = 'pipefail'; // required: replace example with your forum shortname
+    /* var disqus_developer = 1; // Comment out when the site is live */
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function () {
+        var s = document.createElement('script'); s.async = true;
+        s.type = 'text/javascript';
+        s.src = 'https://' + disqus_shortname + '.disqus.com/count.js';
+        (document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
+    }());
+    </script>
+    <!-- Post Header -->
+<header class="intro-header" style="background-image: url('/img/download-bg-01.jpg')">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <h1>Seting up a Debian Archive Mirror</h1>
+                    
+                    <h2 class="subheading">Mirror mirror on the wall whose the prettiest Debian Archive Mirror of them all?</h2>
+                    
+                    <span class="meta">Posted by Chris Lapa on January 14, 2017</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+
+				<p>Waiting for packages to download is the worst, especially when you are doing lots of Root File System development.
+Theres a relatively easy solution to this: setup your own Debian Archive Mirror. I have successfully used the following steps on a ARM board and an Intel NUC.</p>
+
+<p>I like to learn by example, so I will use example parameters listed below for the steps.</p>
+
+<h3 id="parameters">Parameters:</h3>
+
+<ul>
+  <li>Mirror name: <code class="highlighter-rouge">Your Company Package Mirror</code></li>
+  <li>Hostname: <code class="highlighter-rouge">yourcompany.com</code></li>
+  <li>Install directory: <code class="highlighter-rouge">/opt/ftpsync</code></li>
+  <li>Architectures Synced: <code class="highlighter-rouge">armhf source amd64 i386 al</code></li>
+  <li>Admin email: <code class="highlighter-rouge">admin@yourcompany.com</code></li>
+  <li>Email smtp: <code class="highlighter-rouge">yourcompany.com:465</code></li>
+  <li>Debian repo dir: <code class="highlighter-rouge">/var/www/packages/debian</code></li>
+  <li>Username on server: <code class="highlighter-rouge">user1</code></li>
+  <li>Ftpsync install dir: <code class="highlighter-rouge">/opt/ftpsync</code></li>
+</ul>
+
+<h3 id="setup">Setup:</h3>
+
+<ol>
+  <li>
+    <p>Download the latest version of ftpsync: <code class="highlighter-rouge">https://ftp-master.debian.org/ftpsync.tar.gz</code></p>
+  </li>
+  <li>
+    <p>Extract to: <code class="highlighter-rouge">/opt/ftpsync</code></p>
+  </li>
+  <li>
+    <p>Dependancies: <code class="highlighter-rouge">heirloom-mailx ssmtp apache2 rsync</code></p>
+  </li>
+  <li>
+    <p>Setup SSMTP configuration file: <code class="highlighter-rouge">/etc/ssmtp/ssmtp.conf</code></p>
+
+    <p><!-- language: bash --></p>
+
+    <div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code> # Config file for sSMTP sendmail
+ #
+ # The person who gets all mail for userids &lt; 1000
+ # Make this empty to disable rewriting.
+ root=admin@yourcompany.com
+
+ # The place where the mail goes. The actual machine name is required no 
+ # MX records are consulted. Commonly mailhosts are named mail.domain.com
+
+ # Where will the mail seem to come from?
+ rewriteDomain=yourcompany.com
+
+ # The full hostname
+ hostname=yourcompany.com
+
+ # Are users allowed to set their own From: address?
+ # YES - Allow the user to specify their own From: address
+ # NO - Use the system generated From: address
+ FromLineOverride=Yes
+ AuthUser=admin@yourcompany.com
+ AuthPass=****
+ mailhub=yourcompany.com:465
+ UseTLS=Yes
+</code></pre></div>    </div>
+  </li>
+  <li>
+    <p>Setup SSMTP revaliases: <code class="highlighter-rouge">/etc/ssmtp/revaliases</code></p>
+
+    <p><!-- language: bash --></p>
+
+    <div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code> roott:admin@yourcompany.com:yourcompany.com:465
+ user1:admin@yourcompany.com:yourcompany.com:465
+</code></pre></div>    </div>
+  </li>
+  <li>
+    <p>Test SSMTP settings: <code class="highlighter-rouge">echo "Helloworld" | mailx -s "This is a test" "admin@yourcomany.com"</code></p>
+  </li>
+  <li>
+    <p>Setup apache2: <code class="highlighter-rouge">/etc/apache2/sites-available/000-default.conf</code></p>
+
+    <p><!-- language: bash --></p>
+
+    <div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code> &lt;VirtualHost *:80&gt;
+     # The ServerName directive sets the request scheme, hostname and port that
+     # the server uses to identify itself. This is used when creating
+     # redirection URLs. In the context of virtual hosts, the ServerName
+     # specifies what hostname must appear in the request's Host: header to
+     # match this virtual host. For the default virtual host (this file) this
+     # value is not decisive as it is used as a last resort host regardless.
+     # However, you must set it for any further virtual host explicitly.
+     ServerName yourcompany.com
+
+     ServerAdmin admin@yourcompany.com
+     DocumentRoot /var/www/packages
+
+     # Available loglevels: trace8, ..., trace1, debug, info, notice, warn,
+     # error, crit, alert, emerg.
+     # It is also possible to configure the loglevel for particular
+     # modules, e.g.
+     #LogLevel info ssl:warn
+
+     ErrorLog ${APACHE_LOG_DIR}/error.log
+     CustomLog ${APACHE_LOG_DIR}/access.log combined
+
+     # For most configuration files from conf-available/, which are
+     # enabled or disabled at a global level, it is possible to
+     # include a line for only one particular virtual host. For example the
+     # following line enables the CGI configuration for this host only
+     # after it has been globally disabled with "a2disconf".
+     #Include conf-available/serve-cgi-bin.conf
+ &lt;/VirtualHost&gt;
+
+ &lt;Directory "/var/www/packages”&gt;
+     Options +Indexes +SymlinksIfOwnerMatch
+ &lt;/Directory&gt;
+</code></pre></div>    </div>
+  </li>
+  <li>Setup the ServerName globally:
+    <ol>
+      <li><code class="highlighter-rouge">echo "ServerName yourcompany.com" | sudo tee /etc/apache2/conf-available/fqdn.conf</code></li>
+      <li><code class="highlighter-rouge">sudo a2enconf fqdn</code></li>
+      <li><code class="highlighter-rouge">sudo service apache2 reload</code></li>
+      <li><code class="highlighter-rouge">sudo apache2ctl configtest</code></li>
+    </ol>
+  </li>
+  <li>
+    <p>Setup ftpsync config: /opt/ftpsync/etc/ftpsync.conf.
+ The config is relatively straight forward. Picking a fast mirror is important. For me, the primary Australian Debian mirror (ftp.au.debian.org) was the slowest. I would suggest using a tool such as netselect-apt to find the fastest mirror nearby. The fastest mirror for me was the Monash University mirror, however I could not use it as not all mirrors contain all the packages you want. For example I needed the armhf architectures which it did not contain.</p>
+
+    <p>You can also use check the RSYNC_HOST is set correctly by using rsync directly: <code class="highlighter-rouge">rsync debian.mirror.digitalpacific.com.au::</code>. The two colons on the end are not a typo. Normally you would put the rsync module after the colons so leaving it empty is essentially a wildcard telling the server to list all the modules. You shouldn’t include the colons when you set RSYNC_HOST in the config.</p>
+
+    <p>I would also suggest uncommenting the LOCK variable so that ftpsync tool is protected from concurrent instances running. You also shouldn’t neeed to edit anything below the BE VERY CAREFUL lines.</p>
+
+    <p>Example config using our parameters above:</p>
+
+    <p><!-- language: bash --></p>
+
+    <div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code> ## Mirrorname. This is used for things like the trace file name and should always
+ ## be the full hostname of the mirror.
+ MIRRORNAME=Your Company Package Mirror
+
+ ## Destination of the mirrored files. Should be an empty directory.
+ ## CAREFUL, this directory will contain the mirror. Everything else
+ ## that might have happened to be in there WILL BE GONE after the mirror sync!
+ TO="/var/www/packages/debian"
+
+ ## The upstream name of the rsync share.
+ ##
+ ## You can find out what share names your upstream mirror supports by running
+ ## rsync YOURUPSTREAMSERVER::
+ ## (You might have to export RSYNC_USER/RSYNC_PASSWORD for this to work)
+ RSYNC_PATH="debian"
+
+ ## The host we mirror from
+ RSYNC_HOST="debian.mirror.digitalpacific.com.au"
+
+ ## In case we need a user to access the rsync share at our upstream host
+ #RSYNC_USER=
+
+ ## If we need a user we also need a password
+ #RSYNC_PASSWORD=
+
+ ## Set to "true" to tunnel your rsync through stunnel.
+ ##
+ ## ftpsync will then use rsync's -e option to wrap the connection
+ ## with bin/rsync-ssl-tunnel which sets up an stunnel to connect to
+ ## RSYNC_SSL_PORT on the remote site.  (This requires server
+ ##  support, obviously.)
+ ##
+ ## ftpsync can use either stunnel4, stunnel4-old, or socat to set up the
+ ## encrypted tunnel.
+ ##  o stunnel4 requires at least stunnel4 version 5.15 built aginst openssl
+ ##    1.0.2 or later such that the stunnel build supports the checkHost
+ ##    service-level option.  This will cause stunnel to verify both the
+ ##    peer certificate's validity and that it's actually for the host we wish
+ ##    to connect to.
+ ##  o stunnel4-old will skip the checkHost check.  As such it will connect
+ ##    to any peer that is able to present a valid certificate, regardless of
+ ##    which name it is made out to.
+ ##  o socat will verify the peer certificate name only starting with version
+ ##    1.7.3 (Debian 9.0).
+ ## To test if things work, you can run
+ ##  RSYNC_SSL_PORT=1873 RSYNC_SSL_CAPATH=/etc/ssl/certs RSYNC_SSL_METHOD=socat rsync -e 'bin/rsync-ssl-tunnel' &lt;server&gt;::
+ #RSYNC_SSL=false
+ #RSYNC_SSL_PORT=1873
+ #RSYNC_SSL_CAPATH=/etc/ssl/certs
+ #RSYNC_SSL_METHOD=stunnel4
+
+ ## In which directory should logfiles end up
+ ## Note that BASEDIR defaults to $HOME, but can be set before calling the
+ ## ftpsync script to any value you want (for example using pam_env)
+ LOGDIR="${BASEDIR}/log"
+
+ ## Name of our own logfile.
+ ## Note that ${NAME} is set by the ftpsync script depending on the way it
+ ## is called. See README for a description of the multi-archive capability
+ ## and better always include ${NAME} in this path.
+ LOG="${LOGDIR}/${NAME}.log"
+
+ ## The script can send logs (or error messages) to a mail address.
+ ## If this is unset it will default to the local root user unless it is run
+ ## on a .debian.org machine where it will default to the mirroradm people.
+ MAILTO="admin@yourcompany.com"
+
+ ## If you do want a mail about every single sync, set this to false
+ ## Everything else will only send mails if a mirror sync fails
+ ERRORSONLY="false"
+
+ ## If you want the logs to also include output of rsync, set this to true.
+ ## Careful, the logs can get pretty big, especially if it is the first mirror
+ ## run
+ FULLLOGS="false"
+
+ ## If you do want to exclude files from the mirror run, put --exclude statements here.
+ ## See rsync(1) for the exact syntax, these are passed to rsync as written here.
+ ## DO NOT TRY TO EXCLUDE ARCHITECTURES OR SUITES WITH THIS, IT WILL NOT WORK!
+ #EXCLUDE=""
+
+ ## If you do want to exclude an architecture, this is for you.
+ ## Use as space seperated list.
+ ## Possible values are:
+ ## alpha amd64 arm arm64 armel armhf hppa hurd-i386 i386 ia64 kfreebsd-amd64
+ ## kfreebsd-i386 m68k mipsel mips powerpc ppc64el s390 s390x sh sparc source
+ ## eg. ARCH_EXCLUDE="alpha arm arm64 armel mipsel mips s390 sparc"
+ ## An unset value will mirror all architectures (default!)
+ ## Mutually exclusive with ARCH_INCLUDE.
+ ## Notice: source must not be excluded on an official/public mirror
+ #ARCH_EXCLUDE=""
+
+ ## If you do want to include only a set of architectures, this is for you.
+ ## Use as space seperated list.
+ ## Possible values are:
+ ## alpha amd64 arm arm64 armel armhf hppa hurd-i386 i386 ia64 kfreebsd-amd64
+ ## kfreebsd-i386 m68k mipsel mips powerpc ppc64el s390 s390x sh sparc source
+ ## eg. ARCH_INCLUDE="amd64 i386 source"
+ ## An unset value will mirror all architectures (default!)
+ ## Arch all will be included automatically if one binary arch is included.
+ ## Mutually exclusive with ARCH_EXCLUDE.
+ ## Notice: source needs to be included on an official/public mirror
+ ARCH_INCLUDE="armhf source amd64 i386 all"
+
+ ## Do we have leaf mirror to signal we are done and they should sync?
+ ## If so set it to true and make sure you configure runmirrors.mirrors
+ ## and runmirrors.conf for your need.
+ #HUB=false
+
+ ## We do create three logfiles for every run. To save space we rotate them, this
+ ## defines how many we keep
+ LOGROTATE=14
+
+ ## Our own lockfile (only one sync should run at any time)
+ LOCK="${TO}/Archive-Update-in-Progress-${MIRRORNAME}"
+
+ # Timeout for the lockfile, in case we have bash older than v4 (and no /proc)
+ # LOCKTIMEOUT=${LOCKTIMEOUT:-3600}
+
+ ## The following file is used to make sure we will end up with a correctly
+ ## synced mirror even if we get multiple pushes in a short timeframe
+ #UPDATEREQUIRED="${TO}/Archive-Update-Required-${MIRRORNAME}"
+
+ ## Number of seconds to sleep before retrying to sync whenever upstream
+ ## is found to be updating while our update is running
+ #UIPSLEEP=1200
+
+ ## Number of times the update operation will be retried when upstream
+ ## is found to be updating while our update is running.
+ ## Note that these are retries, so: 1st attempt + retries = total attempts
+ #UIPRETRIES=3
+
+ ## The trace file is used by a mirror check tool to see when we last
+ ## had a successful mirror sync. Make sure that it always ends up in
+ ## project/trace and always shows the full hostname.
+ ## This is *relative* to ${TO}
+ #TRACE="project/trace/${MIRRORNAME}"
+
+ ## The trace file can have different format/contents. Here you can select
+ ## what it will be.
+ ## Possible values are
+ ## "full"  - all information
+ ## "terse" - partial, ftpsync version and local hostname
+ ## "date"  - basic, timestamp only (date -u)
+ ## "touch" - just touch the file in existance
+ ## "none"  - no tracefile at all
+ ##
+ ## Default and required value for Debian mirrors is full.
+ #EXTENDEDTRACE="full"
+
+ ## The local hostname to be written to the trace file.
+ #TRACEHOST="$(hostname -f)"
+
+ ## We sync our mirror using rsync (everything else would be insane), so
+ ## we need a few options set.
+ ## The rsync program
+ #RSYNC=rsync
+
+ ## Extra rsync options as defined by the local admin.
+ ## There is no default by ftpsync.
+ ##
+ ## Please note that these options are added to EVERY rsync call.
+ ## Also note that these are added at the beginning of the rsync call, as
+ ## the very first set of options.
+ ## Please ensure you do not add a conflict with the usual rsync options as
+ ## shown below.
+ #RSYNC_EXTRA="-vvv"
+
+ ## limit I/O bandwidth. Value is KBytes per second, unset or 0 means unlimited
+ #RSYNC_BW=""
+
+ ## BE VERY CAREFUL WHEN YOU CHANGE THE RSYNC_OPTIONS! BETTER DON'T!
+</code></pre></div>    </div>
+  </li>
+  <li>
+    <p>Setup a cron job. You should aim to synchronise your modules 4 times a day. However if the upstream server you are using is in the middle of a sync then the update will fail.</p>
+
+    <!-- language: bash -->
+
+    <div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>$ crontab -e
+00 03 * * * /opt/ftpsync/bin/ftpsync sync:all
+00 06 * * * /opt/ftpsync/bin/ftpsync sync:all
+00 12 * * * /opt/ftpsync/bin/ftpsync sync:all
+00 21 * * * /opt/ftpsync/bin/ftpsync sync:all
+</code></pre></div>    </div>
+  </li>
+  <li>Wait for your first sync to finish!</li>
+</ol>
+
+
+                <hr>
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2014/12/08/new-blog/" data-toggle="tooltip" data-placement="top" title="Powered by Jekyll">&larr; Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2017/08/18/gtk-sharp-3/" data-toggle="tooltip" data-placement="top" title="GTK Sharp 3 Adventures">Next Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+                
+                <div id="disqus_thread"></div>
+                    <script type="text/javascript">
+                        /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+                        var disqus_shortname = 'pipefail'; // required: replace example with your forum shortname
+                        // var disqus_developer = 1; // Comment out when the site is live
+                        var disqus_identifier = "/2017/01/14/dpkg-repo/";
+
+                        /* * * DON'T EDIT BELOW THIS LINE * * */
+                        (function() {
+                            var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+                            dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+                            (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+                        })();
+                    </script>
+                    <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+                    <a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+<hr>
+
+
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    <li>
+                        <a href="/feed.xml">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    <li>
+                        <a href="https://twitter.com/Gus_Bricker">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-twitter fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    
+                    <li>
+                        <a href="https://github.com/GusBricker">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li>
+                        <a href="http://ko-fi.com/Buttons/Buy/574E2ZGZ45MK">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-coffee fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                </ul>
+                <p class="copyright text-muted">Copyright &copy; Chris Lapa 2017</p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/clean-blog.min.js "></script>
+
+</div>
+</body>
+
+</html>
