@@ -22,8 +22,7 @@ git fetch origin master
 git reset --hard origin/master
 
 # Gets _site/* files and pushes them to master branch
-# Note: CircleCI creates vendor and .bundle files
-git rm -rf *
+rm -rf * .bundle .sass-cache
 mv /tmp/_site/* .
 git add -A .
 git commit -m "CircleCI: copy _site contents generated from gh-pages-ci branch"
