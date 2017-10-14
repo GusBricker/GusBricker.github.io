@@ -1,12 +1,14 @@
 #!/bin/bash
 
-gem install bundler
-gem install therubyracer
-gem install less
-gem install github-pages
-gem install redcarpet
-gem install jekyll-seo-tag
-gem install jekyll-mermaid
-gem install jekyll_figure
-brew install npm
+set -e
+
+bundle install
+
+if [[ "$OSTYPE" == "linux-gnu" ]]
+then
+	sudo apt-get install npm
+elif [[ "$OSTYPE" == "darwin"* ]]
+then
+	brew install npm
+fi
 npm install uglify-js
