@@ -13,6 +13,7 @@ git checkout -f
 ./setup.sh
 ./build.sh build
 
+git rev-parse HEAD > _site/.githash
 touch _site/.nojekyll
 mv _site /tmp/
 
@@ -28,6 +29,4 @@ rm -rf !(.git|.|..)
 mv /tmp/_site/* .
 git add -A .
 git commit -m "CircleCI: copy _site contents generated from gh-pages-ci branch"
-git remote -v
-git branch
 git push origin master
