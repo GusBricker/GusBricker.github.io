@@ -22,7 +22,8 @@ git fetch origin master
 git reset --hard origin/master
 
 # Gets _site/* files and pushes them to master branch
-rm -rf * .bundle .sass-cache
+shopt -s extglob
+rm -rf !(.git|.|..)
 mv /tmp/_site/* .
 git add -A .
 git commit -m "CircleCI: copy _site contents generated from gh-pages-ci branch"
