@@ -7,7 +7,7 @@ bundle install
 if [[ "$OSTYPE" == "linux-gnu" ]]
 then
     sudo apt-get update
-    sudo apt-get install npm
+    sudo apt-get install -y npm
 elif [[ "$OSTYPE" == "darwin"* ]]
 then
     brew update
