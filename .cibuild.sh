@@ -13,7 +13,8 @@ git checkout -f
 ./setup.sh
 ./build.sh build
 
-git rev-parse HEAD > _site/.githash
+cp circle.yml _site/circle.yml
+git rev-parse HEAD > _site/buildhash
 touch _site/.nojekyll
 mv _site /tmp/
 
