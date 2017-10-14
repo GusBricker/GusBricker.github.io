@@ -19,6 +19,7 @@ mv _site /tmp/
 # Make sure that local master matches with remote master
 # CircleCI merges made changes to master so need to reset it
 git fetch origin master
+git checkout master
 git reset --hard origin/master
 
 # Gets _site/* files and pushes them to master branch
