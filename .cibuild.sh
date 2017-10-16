@@ -11,7 +11,7 @@ git config --global user.name "CircleCI Build Script"
 git checkout -f
 
 ./setup.sh
-./build.sh build
+JEKYLL_ENV=production ./build.sh build
 
 cp circle.yml _site/circle.yml
 git rev-parse HEAD > _site/buildhash
