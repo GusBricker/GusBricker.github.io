@@ -23,6 +23,7 @@ plugins:
     - jekyll-seo-tag
     - jekyll-mermaid
     - jekyll_figure
+    - jekyll-sitemap
 defaults:
   -
     scope:

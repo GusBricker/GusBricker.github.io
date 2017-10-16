@@ -12,4 +12,5 @@ group :jekyll_plugins do
   gem "jekyll-seo-tag"
   gem "jekyll-mermaid"
   gem "jekyll_figure"
+  gem "jekyll-sitemap"
 end
